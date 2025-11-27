@@ -1,0 +1,539 @@
+
+import React, { useState, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth, ROLE_LABELS } from '../contexts/AuthContext';
+import { useData } from '../contexts/DataContext';
+import { UserRole, SystemUser, PERMISSION_LIST, Permission } from '../types';
+import { db } from '../services/db';
+import { 
+  Database, 
+  RotateCcw, 
+  Download, 
+  Upload, 
+  MonitorPlay, 
+  Lock, 
+  CheckCircle,
+  AlertTriangle,
+  Users,
+  Plus,
+  Trash2,
+  Key,
+  FileJson,
+  Megaphone,
+  Save,
+  Search
+} from 'lucide-react';
+
+export const Settings: React.FC = () => {
+  const { hasPermission, user: currentUser } = useAuth();
+  const { resetMonthData, systemUsers, addSystemUser, updateSystemUser, deleteSystemUser, settings, updateSettings } = useData();
+  const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [statusMsg, setStatusMsg] = useState<{type: 'success' | 'error', text: string} | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  
+  // User Management State
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [userForm, setUserForm] = useState<Partial<SystemUser>>({});
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [rawJson, setRawJson] = useState('');
+
+  // Announcement State
+  const [announcementText, setAnnouncementText] = useState(settings.announcement);
+
+  const canManageSystem = hasPermission('MANAGE_SYSTEM');
+
+  const filteredUsers = useMemo(() => {
+    return systemUsers.filter(u => 
+        u.displayName.toLowerCase().includes(userSearchTerm.toLowerCase()) || 
+        u.username.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+        (u.customRoleName && u.customRoleName.includes(userSearchTerm))
+    );
+  }, [systemUsers, userSearchTerm]);
+
+  // Group permissions by category
+  const permissionGroups = useMemo(() => {
+    const groups: Record<string, typeof PERMISSION_LIST> = {};
+    PERMISSION_LIST.forEach(p => {
+        if (!groups[p.category]) groups[p.category] = [];
+        groups[p.category].push(p);
+    });
+    return groups;
+  }, []);
+
+  const showStatus = (type: 'success' | 'error', text: string) => {
+    setStatusMsg({ type, text });
+    setTimeout(() => setStatusMsg(null), 3000);
+  };
+
+  const handleResetDB = async () => {
+    if (confirm('警告：此操作将清空所有历史数据并重置为初始状态！此操作不可逆！\n\n确定要继续吗？')) {
+        setIsProcessing(true);
+        try {
+            await db.resetDatabase();
+            await resetMonthData(); // Reload context
+            showStatus('success', '数据库已重置为出厂设置');
+        } catch (e) {
+            showStatus('error', '重置失败');
+        } finally {
+            setIsProcessing(false);
+        }
+    }
+  };
+
+  const handleExport = async () => {
+    setIsProcessing(true);
+    try {
+        const json = await db.exportDatabase();
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `heshan_payroll_backup_${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        showStatus('success', '备份文件已导出');
+    } catch (e) {
+        showStatus('error', '导出失败');
+    } finally {
+        setIsProcessing(false);
+    }
+  };
+
+  const handleImportClick = () => {
+      fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      if (confirm('即将覆盖当前所有数据，确定要导入吗？')) {
+          setIsProcessing(true);
+          const reader = new FileReader();
+          reader.onload = async (ev) => {
+              try {
+                  const content = ev.target?.result as string;
+                  const success = await db.importDatabase(content);
+                  if (success) {
+                      await resetMonthData(); // Reload context
+                      showStatus('success', '数据导入成功');
+                  } else {
+                      showStatus('error', '导入文件格式错误');
+                  }
+              } catch (err) {
+                  showStatus('error', '导入失败');
+              } finally {
+                  setIsProcessing(false);
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+              }
+          };
+          reader.readAsText(file);
+      }
+  };
+
+  const handleSaveUser = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!userForm.username || !userForm.displayName || !userForm.pinCode) return;
+
+      const userData = {
+          ...userForm,
+          permissions: userForm.permissions || []
+      } as SystemUser;
+
+      if (userForm.id) {
+          await updateSystemUser(userData);
+          showStatus('success', '用户信息已更新');
+      } else {
+          await addSystemUser({
+              username: userForm.username,
+              displayName: userForm.displayName,
+              role: userForm.role || UserRole.GUEST,
+              customRoleName: userForm.customRoleName,
+              permissions: userForm.permissions || [],
+              pinCode: userForm.pinCode,
+              isSystem: false
+          });
+          showStatus('success', '新用户已创建');
+      }
+      setShowUserModal(false);
+  };
+
+  const handleDeleteUser = async (u: SystemUser) => {
+      if (confirm(`确定要永久删除用户 "${u.displayName}" 吗？此操作无法撤销。`)) {
+          await deleteSystemUser(u.id);
+          showStatus('success', '用户已删除');
+      }
+  };
+
+  const togglePermission = (perm: Permission) => {
+      const currentPerms = userForm.permissions || [];
+      if (currentPerms.includes(perm)) {
+          setUserForm({ ...userForm, permissions: currentPerms.filter(p => p !== perm) });
+      } else {
+          setUserForm({ ...userForm, permissions: [...currentPerms, perm] });
+      }
+  };
+
+  const saveAnnouncement = async () => {
+      await updateSettings({ announcement: announcementText });
+      showStatus('success', '公告内容已更新');
+  };
+
+  const inspectData = async () => {
+      const json = await db.exportDatabase();
+      setRawJson(json);
+      setInspectorOpen(true);
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-8 animate-fade-in pb-12">
+      <div>
+        <h1 className="text-2xl font-bold text-slate-800">系统设置</h1>
+        <p className="text-slate-500">管理数据库连接、用户权限及高级功能配置</p>
+      </div>
+
+      {statusMsg && (
+          <div className={`p-4 rounded-lg flex items-center gap-3 ${statusMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+              {statusMsg.type === 'success' ? <CheckCircle size={20} /> : <AlertTriangle size={20} />}
+              <span className="font-medium">{statusMsg.text}</span>
+          </div>
+      )}
+
+      {/* 1. Announcement Settings */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-slate-100 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center">
+                  <Megaphone size={20} />
+              </div>
+              <div>
+                  <h3 className="text-lg font-bold text-slate-800">车间公告设置</h3>
+                  <p className="text-sm text-slate-500">在车间轮播模式下底部滚动的通知内容</p>
+              </div>
+          </div>
+          <div className="p-6">
+              <textarea 
+                  className="w-full border border-slate-300 rounded-lg p-3 h-24 focus:ring-2 focus:ring-pink-500 outline-none resize-none"
+                  value={announcementText}
+                  onChange={e => setAnnouncementText(e.target.value)}
+                  placeholder="输入公告内容..."
+              />
+              <div className="mt-3 flex justify-end">
+                  <button 
+                    onClick={saveAnnouncement}
+                    className="flex items-center gap-2 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition"
+                  >
+                      <Save size={16} /> 保存公告
+                  </button>
+              </div>
+          </div>
+      </div>
+
+      {/* 2. Simulation / Workshop Display */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                      <MonitorPlay size={20} />
+                  </div>
+                  <div>
+                      <h3 className="text-lg font-bold text-slate-800">薪酬模拟与车间公示</h3>
+                      <p className="text-sm text-slate-500">模拟不同产量/权重下的薪酬情况，或开启车间轮播模式</p>
+                  </div>
+              </div>
+          </div>
+          <div className="p-6 bg-slate-50/50">
+               <div className="flex items-center justify-between">
+                  <div className="text-sm text-slate-600 max-w-lg">
+                      点击进入模拟沙箱环境。该模式下的更改不会影响实际数据库。支持开启全屏轮播功能，用于车间大屏展示。
+                  </div>
+                  <button 
+                    onClick={() => navigate('/simulation')}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all font-medium"
+                  >
+                      <MonitorPlay size={18} /> 进入模拟沙箱
+                  </button>
+              </div>
+          </div>
+      </div>
+
+      {/* 3. User Management */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center">
+                      <Users size={20} />
+                  </div>
+                  <div>
+                      <h3 className="text-lg font-bold text-slate-800">系统用户与权限管理</h3>
+                      <p className="text-sm text-slate-500">添加/删除登录账号，自定义权限</p>
+                  </div>
+              </div>
+              {!canManageSystem && <Lock size={20} className="text-slate-300" />}
+          </div>
+          
+          <div className="p-6">
+              {canManageSystem ? (
+                  <>
+                    <div className="mb-4 flex flex-col md:flex-row justify-between gap-4">
+                        <div className="relative flex-1 max-w-sm">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                            <input 
+                                type="text"
+                                placeholder="搜索用户..."
+                                className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+                                value={userSearchTerm}
+                                onChange={e => setUserSearchTerm(e.target.value)}
+                            />
+                        </div>
+                        <button 
+                            onClick={() => { setUserForm({ permissions: [] }); setShowUserModal(true); }}
+                            className="flex items-center gap-2 px-3 py-2 bg-slate-800 text-white rounded hover:bg-slate-900 text-sm font-medium"
+                        >
+                            <Plus size={16} /> 新增用户
+                        </button>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="bg-slate-50 text-slate-500 border-b border-slate-200">
+                                <tr>
+                                    <th className="px-4 py-3">显示名称</th>
+                                    <th className="px-4 py-3">角色/职位</th>
+                                    <th className="px-4 py-3 text-center">PIN</th>
+                                    <th className="px-4 py-3 text-right">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {filteredUsers.length > 0 ? filteredUsers.map(u => {
+                                    // 仅保护 u1 (系统管理员) 和 当前用户
+                                    // name 属性在 AuthContext 中通常对应 displayName, 但为了安全我们主要依赖 ID u1 的保护
+                                    // 对于当前用户，如果能匹配到名字则保护
+                                    const isProtected = u.id === 'u1' || (currentUser && u.displayName === currentUser.name);
+
+                                    return (
+                                    <tr key={u.id} className="hover:bg-slate-50">
+                                        <td className="px-4 py-2">
+                                            <div className="font-medium text-slate-800">{u.displayName}</div>
+                                            <div className="text-xs text-slate-500">{u.username}</div>
+                                        </td>
+                                        <td className="px-4 py-2">
+                                            <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs border border-blue-100 font-bold">
+                                                {u.customRoleName || ROLE_LABELS[u.role]?.split(' ')[0] || u.role}
+                                            </span>
+                                            <div className="text-xs text-slate-400 mt-1">
+                                                {u.permissions.length} 项权限
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-2 text-center font-mono text-slate-400">****</td>
+                                        <td className="px-4 py-2 flex justify-end gap-2">
+                                            <button 
+                                                onClick={() => { setUserForm(u); setShowUserModal(true); }}
+                                                className="p-1.5 text-slate-400 hover:text-blue-600 bg-slate-50 rounded"
+                                                title="编辑"
+                                            >
+                                                <Key size={16} />
+                                            </button>
+                                            
+                                            {!isProtected && (
+                                                <button 
+                                                    onClick={() => handleDeleteUser(u)}
+                                                    className="p-1.5 text-red-500 hover:text-white hover:bg-red-500 bg-red-50 rounded transition-colors"
+                                                    title="删除"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                )}) : (
+                                    <tr>
+                                        <td colSpan={4} className="px-4 py-8 text-center text-slate-400">
+                                            未找到匹配用户
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                  </>
+              ) : (
+                  <div className="flex flex-col items-center justify-center py-8 text-slate-400 bg-slate-50/50 rounded-lg">
+                      <Lock size={32} className="mb-2 opacity-50" />
+                      <p>仅系统管理员可配置用户权限</p>
+                  </div>
+              )}
+          </div>
+      </div>
+
+      {/* User Modal */}
+      {showUserModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+                  <h3 className="text-lg font-bold mb-4">{userForm.id ? '编辑用户' : '新增用户'}</h3>
+                  <form onSubmit={handleSaveUser} className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                          <div>
+                              <label className="block text-sm font-medium text-slate-700 mb-1">显示名称</label>
+                              <input 
+                                  type="text" required
+                                  className="w-full border border-slate-300 rounded px-3 py-2"
+                                  value={userForm.displayName || ''}
+                                  onChange={e => setUserForm({...userForm, displayName: e.target.value})}
+                              />
+                          </div>
+                          <div>
+                              <label className="block text-sm font-medium text-slate-700 mb-1">登录用户名</label>
+                              <input 
+                                  type="text" required
+                                  disabled={!!userForm.id}
+                                  className="w-full border border-slate-300 rounded px-3 py-2 disabled:bg-slate-100"
+                                  value={userForm.username || ''}
+                                  onChange={e => setUserForm({...userForm, username: e.target.value})}
+                              />
+                          </div>
+                          <div>
+                              <label className="block text-sm font-medium text-slate-700 mb-1">登录 PIN 码</label>
+                              <input 
+                                  type="text" required
+                                  className="w-full border border-slate-300 rounded px-3 py-2 font-mono tracking-widest"
+                                  value={userForm.pinCode || ''}
+                                  onChange={e => setUserForm({...userForm, pinCode: e.target.value})}
+                              />
+                          </div>
+                          <div>
+                              <label className="block text-sm font-medium text-slate-700 mb-1">系统角色模板</label>
+                              <select 
+                                  className="w-full border border-slate-300 rounded px-3 py-2"
+                                  value={userForm.role}
+                                  onChange={e => setUserForm({...userForm, role: e.target.value as UserRole})}
+                              >
+                                  {Object.keys(ROLE_LABELS).filter(k => k !== 'GUEST').map(r => (
+                                      <option key={r} value={r}>{ROLE_LABELS[r as UserRole]}</option>
+                                  ))}
+                              </select>
+                          </div>
+                          <div className="col-span-2">
+                               <label className="block text-sm font-medium text-slate-700 mb-1">自定义职位名称 (可选)</label>
+                               <input 
+                                  type="text"
+                                  placeholder="例如：车间统计员 (为空则显示角色模板名)"
+                                  className="w-full border border-slate-300 rounded px-3 py-2"
+                                  value={userForm.customRoleName || ''}
+                                  onChange={e => setUserForm({...userForm, customRoleName: e.target.value})}
+                              />
+                          </div>
+                      </div>
+
+                      <div>
+                          <label className="block text-sm font-bold text-slate-700 mb-3">权限配置</label>
+                          <div className="space-y-4">
+                              {Object.entries(permissionGroups).map(([category, perms]) => (
+                                  <div key={category} className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                      <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">{category}</h4>
+                                      <div className="grid grid-cols-2 gap-2">
+                                        {(perms as typeof PERMISSION_LIST).map(p => (
+                                            <label key={p.key} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer hover:bg-slate-100 p-1 rounded transition-colors">
+                                                <input 
+                                                    type="checkbox"
+                                                    checked={(userForm.permissions || []).includes(p.key)}
+                                                    onChange={() => togglePermission(p.key)}
+                                                    className="rounded text-blue-600 focus:ring-blue-500"
+                                                />
+                                                <span>{p.label}</span>
+                                            </label>
+                                        ))}
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+
+                      <div className="flex justify-end gap-3 mt-6">
+                          <button 
+                            type="button" 
+                            onClick={() => setShowUserModal(false)}
+                            className="px-4 py-2 border border-slate-300 rounded text-slate-600 hover:bg-slate-50"
+                          >
+                              取消
+                          </button>
+                          <button 
+                            type="submit" 
+                            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                          >
+                              保存配置
+                          </button>
+                      </div>
+                  </form>
+              </div>
+          </div>
+      )}
+
+      {/* Database Maintenance Section (Bottom) */}
+       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-slate-100 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center">
+                  <Database size={20} />
+              </div>
+              <div>
+                  <h3 className="text-lg font-bold text-slate-800">数据库维护</h3>
+                  <p className="text-sm text-slate-500">备份、恢复与重置系统数据</p>
+              </div>
+          </div>
+          <div className="p-6">
+              <div className="flex flex-wrap gap-4">
+                  <button 
+                    onClick={handleExport} disabled={isProcessing}
+                    className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 text-slate-700 shadow-sm transition"
+                  >
+                      <Download size={18} /> 导出备份
+                  </button>
+                  <button 
+                    onClick={handleImportClick} disabled={isProcessing}
+                    className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 text-slate-700 shadow-sm transition"
+                  >
+                      <Upload size={18} /> 恢复数据
+                  </button>
+                  <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
+                  
+                  <div className="flex-1"></div>
+                  
+                  <button 
+                    onClick={inspectData}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition"
+                  >
+                      <FileJson size={18} /> 查看源数据
+                  </button>
+
+                  <button 
+                    onClick={handleResetDB} disabled={isProcessing}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 border border-red-100 rounded-lg hover:bg-red-100 transition"
+                  >
+                      <RotateCcw size={18} /> 恢复出厂设置
+                  </button>
+              </div>
+          </div>
+      </div>
+
+      {/* JSON Inspector Modal */}
+      {inspectorOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+              <div className="bg-slate-900 rounded-xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col">
+                  <div className="p-4 border-b border-slate-700 flex justify-between items-center">
+                      <h3 className="text-white font-mono font-bold flex items-center gap-2">
+                          <Database size={18} /> DB Inspector
+                      </h3>
+                      <button onClick={() => setInspectorOpen(false)} className="text-slate-400 hover:text-white">Close</button>
+                  </div>
+                  <div className="flex-1 overflow-auto p-4">
+                      <pre className="text-xs font-mono text-emerald-400 whitespace-pre-wrap break-all">
+                          {rawJson}
+                      </pre>
+                  </div>
+              </div>
+          </div>
+      )}
+    </div>
+  );
+};

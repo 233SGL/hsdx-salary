@@ -1,0 +1,113 @@
+
+import React, { useState } from 'react';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { DataProvider, useData } from './contexts/DataContext';
+import { Sidebar } from './components/Sidebar';
+import { Login } from './pages/Login';
+import { Dashboard } from './pages/Dashboard';
+import { SalaryCalculator } from './pages/SalaryCalculator';
+import { Employees } from './pages/Employees';
+import { Settings } from './pages/Settings';
+import { Simulation } from './pages/Simulation';
+import { Attendance } from './pages/Attendance';
+import { ProductionData } from './pages/ProductionData';
+import { Menu, Loader2 } from 'lucide-react';
+
+const Layout = ({ children }: { children?: React.ReactNode }) => {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { user } = useAuth();
+  const { isLoading } = useData();
+
+  if (!user) return <Navigate to="/login" replace />;
+
+  if (isLoading) {
+    return (
+        <div className="flex h-screen items-center justify-center bg-slate-50 text-slate-500">
+            <div className="flex flex-col items-center gap-3">
+                <Loader2 size={40} className="animate-spin text-blue-500" />
+                <p>正在同步数据...</p>
+            </div>
+        </div>
+    );
+  }
+
+  return (
+    <div className="flex h-screen bg-slate-50 text-slate-900 overflow-hidden font-sans">
+      <Sidebar isOpen={sidebarOpen} toggle={() => setSidebarOpen(!sidebarOpen)} />
+      <main className="flex-1 flex flex-col h-full overflow-hidden relative">
+        {/* Mobile Header */}
+        <div className="lg:hidden bg-white border-b border-slate-200 p-4 flex items-center justify-between z-10">
+          <span className="font-bold text-slate-800">薪酬管理系统</span>
+          <button onClick={() => setSidebarOpen(true)} className="text-slate-600">
+            <Menu size={24} />
+          </button>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
+          {children}
+        </div>
+      </main>
+    </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <DataProvider>
+        <HashRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            
+            <Route path="/" element={
+              <Layout>
+                <Dashboard />
+              </Layout>
+            } />
+            
+            <Route path="/production-data" element={
+              <Layout>
+                <ProductionData />
+              </Layout>
+            } />
+            
+            <Route path="/attendance" element={
+              <Layout>
+                <Attendance />
+              </Layout>
+            } />
+            
+            <Route path="/calculator" element={
+              <Layout>
+                <SalaryCalculator />
+              </Layout>
+            } />
+            
+            <Route path="/employees" element={
+              <Layout>
+                <Employees />
+              </Layout>
+            } />
+
+            <Route path="/settings" element={
+              <Layout>
+                <Settings />
+              </Layout>
+            } />
+
+            <Route path="/simulation" element={
+              <Layout>
+                <Simulation />
+              </Layout>
+            } />
+
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </HashRouter>
+      </DataProvider>
+    </AuthProvider>
+  );
+};
+
+export default App;
