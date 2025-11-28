@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { MonthlyData, Employee, SalaryRecord, SystemUser, GlobalSettings } from '../types';
 import { db } from '../services/db';
@@ -35,6 +34,7 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
+// Updated Defaults matching the user provided image
 const DEFAULT_PARAMS = {
   area: 18000,
   unitPrice: 2.5,
