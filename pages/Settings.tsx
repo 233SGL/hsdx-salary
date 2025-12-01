@@ -3,7 +3,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { useAuth, ROLE_LABELS } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { UserRole, SystemUser, PERMISSION_LIST, Permission } from '../types';
-import { db } from '../services/db';
+import { db, API_BASE } from '../services/db';
 import { 
   Database, 
   RotateCcw, 
@@ -27,6 +27,8 @@ export const Settings: React.FC = () => {
 
   const [statusMsg, setStatusMsg] = useState<{type: 'success' | 'error', text: string} | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+    const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL as string | undefined;
+    const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY as string | undefined;
   
   // User Management State
   const [showUserModal, setShowUserModal] = useState(false);
@@ -94,7 +96,24 @@ export const Settings: React.FC = () => {
     }
   };
 
-  const handleImportClick = () => {
+  const testSupabaseConnection = async () => {
+    try {
+        // 测试后端连接（后端会连接到 Supabase）
+        const res = await fetch(`${API_BASE}/health`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.connected) {
+            showStatus('success', '后端已连接 Supabase 数据库');
+          } else {
+            showStatus('error', '后端无法连接数据库');
+          }
+        } else {
+          showStatus('error', `后端服务错误：HTTP ${res.status}`);
+        }
+    } catch (e) {
+        showStatus('error', `无法连接后端服务（${API_BASE})`);
+    }
+  };  const handleImportClick = () => {
       fileInputRef.current?.click();
   };
 
@@ -463,7 +482,7 @@ export const Settings: React.FC = () => {
               </div>
               <div>
                   <h3 className="text-lg font-bold text-slate-800">数据库维护</h3>
-                  <p className="text-sm text-slate-500">备份、恢复与重置系统数据</p>
+                  <p className="text-sm text-slate-500">备份、恢复与重置系统数据；测试 Supabase 连通性</p>
               </div>
           </div>
           <div className="p-6">
@@ -484,6 +503,13 @@ export const Settings: React.FC = () => {
                   
                   <div className="flex-1"></div>
                   
+                                    <button 
+                                        onClick={testSupabaseConnection}
+                                        className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg hover:bg-emerald-100 transition"
+                                    >
+                                            测试 Supabase 连接
+                                    </button>
+
                   <button 
                     onClick={inspectData}
                     className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition"

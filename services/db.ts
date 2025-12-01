@@ -1,7 +1,25 @@
 import { MonthlyData, Employee, StorageStats, SystemUser, UserRole, Permission, GlobalSettings, Workshop } from '../types';
 
-const DB_PREFIX = 'heshan_db_v9'; // Increment for permission schema change
-const LATENCY_MS = 300; 
+const resolveApiBase = (): string => {
+  const envBase = import.meta.env?.VITE_API_BASE?.replace(/\/$/, '');
+  if (envBase) return envBase;
+
+  if (typeof window !== 'undefined') {
+    const { protocol, hostname, port } = window.location;
+
+    if (!port || port === '80' || port === '443') {
+      return `${protocol}//${hostname}/api`;
+    }
+
+    const devPorts = new Set(['3001', '5173', '4173']);
+    const targetPort = devPorts.has(port) ? '3000' : port;
+    return `${protocol}//${hostname}:${targetPort}/api`;
+  }
+
+  return 'http://localhost:3000/api';
+};
+
+export const API_BASE = resolveApiBase();
 
 // Initial Workshops
 const INITIAL_WORKSHOPS: Workshop[] = [
@@ -85,195 +103,262 @@ export class DatabaseService {
 
   public async connect(): Promise<boolean> {
     if (this.isConnected) return true;
-    await new Promise(resolve => setTimeout(resolve, 600)); 
     
-    // Seed Workshops
-    const wsData = localStorage.getItem(`${DB_PREFIX}_workshops`);
-    if (!wsData) {
-        localStorage.setItem(`${DB_PREFIX}_workshops`, JSON.stringify(INITIAL_WORKSHOPS));
+    try {
+      const response = await fetch(`${API_BASE}/health`);
+      const data = await response.json();
+      this.isConnected = data.connected === true;
+      return this.isConnected;
+    } catch (error) {
+      console.error('Failed to connect to backend:', error);
+      this.isConnected = false;
+      return false;
     }
-
-    // Seed Employees
-    const empData = localStorage.getItem(`${DB_PREFIX}_employees`);
-    if (!empData) {
-        localStorage.setItem(`${DB_PREFIX}_employees`, JSON.stringify(INITIAL_EMPLOYEES));
-    }
-
-    // Seed Users
-    const userData = localStorage.getItem(`${DB_PREFIX}_users`);
-    if (!userData) {
-        localStorage.setItem(`${DB_PREFIX}_users`, JSON.stringify(INITIAL_USERS));
-    }
-
-    // Seed Settings
-    const settingsData = localStorage.getItem(`${DB_PREFIX}_settings`);
-    if (!settingsData) {
-        localStorage.setItem(`${DB_PREFIX}_settings`, JSON.stringify(DEFAULT_SETTINGS));
-    }
-
-    this.isConnected = true;
-    return true;
   }
 
   // === Settings ===
   public async getSettings(): Promise<GlobalSettings> {
       await this.ensureConnection();
-      const data = localStorage.getItem(`${DB_PREFIX}_settings`);
-      return data ? JSON.parse(data) : DEFAULT_SETTINGS;
+      try {
+        const response = await fetch(`${API_BASE}/settings`);
+        if (!response.ok) throw new Error('Failed to fetch settings');
+        const data = await response.json();
+        return {
+          announcement: data?.announcement || ''
+        };
+      } catch (error) {
+        console.error('Error fetching settings:', error);
+        return DEFAULT_SETTINGS;
+      }
   }
 
   public async saveSettings(settings: GlobalSettings): Promise<void> {
       await this.ensureConnection();
-      await this.delay();
-      localStorage.setItem(`${DB_PREFIX}_settings`, JSON.stringify(settings));
+      const response = await fetch(`${API_BASE}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings)
+      });
+      if (!response.ok) throw new Error('Failed to save settings');
   }
 
   // === Workshops ===
   public async getWorkshops(): Promise<Workshop[]> {
       await this.ensureConnection();
-      const data = localStorage.getItem(`${DB_PREFIX}_workshops`);
-      return data ? JSON.parse(data) : [];
+      try {
+        const response = await fetch(`${API_BASE}/workshops`);
+        if (!response.ok) throw new Error('Failed to fetch workshops');
+        const data = await response.json();
+        return data.map((ws: any) => ({
+          id: ws.id,
+          name: ws.name,
+          code: ws.code,
+          departments: ws.departments || []
+        }));
+      } catch (error) {
+        console.error('Error fetching workshops:', error);
+        return INITIAL_WORKSHOPS;
+      }
   }
 
   public async saveWorkshops(workshops: Workshop[]): Promise<void> {
       await this.ensureConnection();
-      await this.delay();
-      localStorage.setItem(`${DB_PREFIX}_workshops`, JSON.stringify(workshops));
+      console.warn('saveWorkshops not yet implemented in backend');
   }
 
   // === System Users ===
 
   public async getSystemUsers(): Promise<SystemUser[]> {
     await this.ensureConnection();
-    const data = localStorage.getItem(`${DB_PREFIX}_users`);
-    return data ? JSON.parse(data) : [];
+    try {
+      const response = await fetch(`${API_BASE}/users`);
+      if (!response.ok) throw new Error('Failed to fetch users');
+      const data = await response.json();
+      // Convert snake_case from DB to camelCase for frontend
+      return data.map((user: any) => ({
+        id: user.id,
+        username: user.username,
+        displayName: user.display_name,
+        role: user.role,
+        customRoleName: user.custom_role_name,
+        pinCode: user.pin_code,
+        isSystem: user.is_system,
+        scopes: user.scopes || [],
+        permissions: user.permissions || []
+      }));
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      return [];
+    }
   }
 
   public async saveSystemUsers(users: SystemUser[]): Promise<void> {
     await this.ensureConnection();
-    await this.delay();
-    localStorage.setItem(`${DB_PREFIX}_users`, JSON.stringify(users));
+    console.warn('saveSystemUsers not yet implemented in backend');
   }
 
   // === Personnel ===
 
   public async getEmployees(): Promise<Employee[]> {
     await this.ensureConnection();
-    const data = localStorage.getItem(`${DB_PREFIX}_employees`);
-    return data ? JSON.parse(data) : [];
+    try {
+      const response = await fetch(`${API_BASE}/employees`);
+      if (!response.ok) throw new Error('Failed to fetch employees');
+      const data = await response.json();
+      // Convert snake_case from DB to camelCase for frontend
+      return data.map((emp: any) => ({
+        id: emp.id,
+        name: emp.name,
+        gender: emp.gender,
+        workshopId: emp.workshop_id,
+        department: emp.department,
+        position: emp.position,
+        joinDate: emp.join_date,
+        standardBaseScore: Number(emp.standard_base_score),
+        status: emp.status,
+        phone: emp.phone,
+        expectedDailyHours: Number(emp.expected_daily_hours)
+      }));
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+      return [];
+    }
   }
 
   public async saveEmployees(employees: Employee[]): Promise<void> {
     await this.ensureConnection();
-    await this.delay();
-    localStorage.setItem(`${DB_PREFIX}_employees`, JSON.stringify(employees));
+    console.warn('saveEmployees bulk operation not yet implemented');
   }
 
   public async updateEmployee(updatedEmp: Employee): Promise<void> {
     await this.ensureConnection();
-    await this.delay();
-    const employees = await this.getEmployees();
-    const newEmps = employees.map(e => e.id === updatedEmp.id ? updatedEmp : e);
-    localStorage.setItem(`${DB_PREFIX}_employees`, JSON.stringify(newEmps));
+    // Convert camelCase to snake_case for DB
+    const dbEmp = {
+      name: updatedEmp.name,
+      gender: updatedEmp.gender,
+      workshopId: updatedEmp.workshopId,
+      department: updatedEmp.department,
+      position: updatedEmp.position,
+      joinDate: updatedEmp.joinDate,
+      standardBaseScore: updatedEmp.standardBaseScore,
+      status: updatedEmp.status,
+      phone: updatedEmp.phone,
+      expectedDailyHours: updatedEmp.expectedDailyHours
+    };
+    
+    const response = await fetch(`${API_BASE}/employees/${updatedEmp.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dbEmp)
+    });
+    if (!response.ok) throw new Error('Failed to update employee');
   }
 
   // === Monthly Data ===
 
   public async getMonthlyData(year: number, month: number): Promise<MonthlyData | null> {
     await this.ensureConnection();
-    await this.delay();
-    const key = `${DB_PREFIX}_data_${year}_${month}`;
-    const data = localStorage.getItem(key);
-    return data ? JSON.parse(data) : null;
+    try {
+      const response = await fetch(`${API_BASE}/monthly-data/${year}/${month}`);
+      if (!response.ok) {
+        if (response.status === 404) return null;
+        throw new Error('Failed to fetch monthly data');
+      }
+      const data = await response.json();
+      if (!data || !data.data) return null;
+      try {
+        return typeof data.data === 'string' ? JSON.parse(data.data) : data.data;
+      } catch (e) {
+        console.error('Failed to parse monthly data:', e);
+        return null;
+      }
+    } catch (error) {
+      console.error('Error fetching monthly data:', error);
+      return null;
+    }
   }
 
   public async saveMonthlyData(data: MonthlyData): Promise<void> {
     await this.ensureConnection();
-    await this.delay();
-    const key = `${DB_PREFIX}_data_${data.params.year}_${data.params.month}`;
-    localStorage.setItem(key, JSON.stringify(data));
+    const response = await fetch(`${API_BASE}/monthly-data`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        year: data.params.year,
+        month: data.params.month,
+        data: data
+      })
+    });
+    if (!response.ok) throw new Error('Failed to save monthly data');
   }
 
   // === Stats & Maintenance ===
 
   public async getStorageStats(): Promise<StorageStats> {
     await this.ensureConnection();
-    let totalSize = 0;
-    let recordCount = 0;
-    
-    for(let key in localStorage) {
-        if (!localStorage.hasOwnProperty(key)) continue;
-        if (key.startsWith(DB_PREFIX)) {
-            const val = localStorage.getItem(key) || '';
-            totalSize += (val.length * 2); // approx bytes
-            if(key.includes('_data_')) recordCount++;
-        }
-    }
-
-    const emps = await this.getEmployees();
-    
-    return {
-        usedKB: Math.round(totalSize / 1024),
-        recordCount,
+    try {
+      const emps = await this.getEmployees();
+      return {
+        usedKB: 0, // Backend should provide this
+        recordCount: 0, // Backend should provide this
         employeeCount: emps.length,
         lastBackup: new Date().toLocaleDateString()
-    };
+      };
+    } catch (error) {
+      return {
+        usedKB: 0,
+        recordCount: 0,
+        employeeCount: 0,
+        lastBackup: 'N/A'
+      };
+    }
   }
 
   public async resetDatabase(): Promise<void> {
-    await this.delay();
-    Object.keys(localStorage).forEach(key => {
-        if (key.startsWith(DB_PREFIX)) {
-            localStorage.removeItem(key);
-        }
-    });
-    localStorage.setItem(`${DB_PREFIX}_workshops`, JSON.stringify(INITIAL_WORKSHOPS));
-    localStorage.setItem(`${DB_PREFIX}_employees`, JSON.stringify(INITIAL_EMPLOYEES));
-    localStorage.setItem(`${DB_PREFIX}_users`, JSON.stringify(INITIAL_USERS));
-    localStorage.setItem(`${DB_PREFIX}_settings`, JSON.stringify(DEFAULT_SETTINGS));
+    console.warn('resetDatabase not yet implemented in backend');
+    throw new Error('Database reset must be done via Supabase SQL Editor');
   }
 
   public async exportDatabase(): Promise<string> {
-    await this.delay();
-    const exportData: Record<string, any> = {};
-    Object.keys(localStorage).forEach(key => {
-        if (key.startsWith(DB_PREFIX)) {
-            exportData[key] = JSON.parse(localStorage.getItem(key) || 'null');
-        }
-    });
-    return JSON.stringify(exportData, null, 2);
+    await this.ensureConnection();
+    try {
+      const [employees, workshops, users, settings] = await Promise.all([
+        this.getEmployees(),
+        this.getWorkshops(),
+        this.getSystemUsers(),
+        this.getSettings()
+      ]);
+      
+      const exportData = {
+        employees,
+        workshops,
+        users,
+        settings,
+        exportDate: new Date().toISOString()
+      };
+      
+      return JSON.stringify(exportData, null, 2);
+    } catch (error) {
+      console.error('Export failed:', error);
+      throw error;
+    }
   }
 
   public async importDatabase(jsonString: string): Promise<boolean> {
-    await this.delay();
     try {
-        const data = JSON.parse(jsonString);
-        if (!data || typeof data !== 'object') return false;
+      const data = JSON.parse(jsonString);
+      if (!data || typeof data !== 'object') return false;
 
-        // Wipe current
-        Object.keys(localStorage).forEach(key => {
-            if (key.startsWith(DB_PREFIX)) localStorage.removeItem(key);
-        });
-
-        // Restore
-        Object.entries(data).forEach(([key, val]) => {
-            if (key.startsWith(DB_PREFIX)) {
-                localStorage.setItem(key, JSON.stringify(val));
-            }
-        });
-        return true;
+      console.warn('Database import from JSON not fully implemented. Please use SQL import in Supabase.');
+      return false;
     } catch (e) {
-        console.error("Import failed", e);
-        return false;
+      console.error("Import failed", e);
+      return false;
     }
   }
 
   private async ensureConnection() {
     if (!this.isConnected) await this.connect();
-  }
-
-  private async delay() {
-    await new Promise(resolve => setTimeout(resolve, LATENCY_MS));
   }
 }
 

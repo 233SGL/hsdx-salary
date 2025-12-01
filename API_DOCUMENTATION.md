@@ -19,9 +19,11 @@
 
 ## 概述
 
-和山薪酬管理系统是一个基于 React + TypeScript 开发的工资计算与管理系统，使用 localStorage 作为数据持久化方案。系统实现了基于角色的权限控制（RBAC），支持多用户、多部门的薪酬核算。
+和山薪酬管理系统是一个基于 React + TypeScript + Node.js 的工资计算与管理系统。前端通过 REST API 访问本地 Node/Express 后端，后端使用 Session Pooler 直连 Supabase Postgres 数据库，实现持久化存储与共享。系统实现了基于角色的权限控制（RBAC），支持多用户、多部门的薪酬核算。
 
-重要变更：从 v1.1 起，应用不再持久化登录状态，刷新或重新打开页面需要重新登录（会话级登录）。
+重要变更：
+- 从 v1.1 起，应用不再持久化登录状态，刷新或重新打开页面需要重新登录（会话级登录）。
+- 从 v1.2 起，所有业务数据均由后端连接 Supabase 数据库提供，前端不再直接写入浏览器 localStorage。
 
 ### 核心功能模块
 
@@ -30,6 +32,13 @@
 - **考勤管理**: 每日工时记录
 - **薪酬计算**: 基于产量、出勤、基础分的综合计算
 - **数据导入导出**: 支持数据备份与恢复
+
+### 运行架构
+
+- **前端 (Vite + React)**：默认开发端口 5173，可通过 `VITE_DEV_PORT` 自定义。
+- **后端 (Express + PostgreSQL)**：运行在 `http://localhost:3000`，并向前端暴露 `/api/*` REST 接口。
+- **数据库**：Supabase Postgres（Session Pooler 连接字符串在 `.env.server` 中配置）。
+- **API 基础地址**：前端会自动根据当前页面端口推断 API 基础地址，亦可通过 `VITE_API_BASE` 显式指定（例如 `https://example.com/api`）。
 
 ---
 
@@ -172,9 +181,13 @@ interface CalculationResult {
 
 ### 类: DatabaseService
 
-单例模式的数据库服务类，基于 localStorage 实现。
+单例模式的数据库服务类。所有方法都会通过 `fetch` 调用本地 Node 后端 (`API_BASE`)，由后端直连 Supabase 数据库并返回 JSON 结果。
 
-存储前缀：`heshan_db_v9`
+`API_BASE` 计算规则：
+1. 读取 `import.meta.env.VITE_API_BASE`（若设置则直接使用）。
+2. 若未设置，则根据当前页面所在端口推断：
+  - 当前端运行在 `5173/4173/3001` 等典型开发端口时，自动使用 `http://localhost:3000/api`。
+  - 其它情况默认拼接为同源的 `/api`。
 
 #### 实例获取
 
@@ -190,7 +203,7 @@ static getInstance(): DatabaseService
 async connect(): Promise<boolean>
 ```
 
-**功能**: 初始化数据库连接，创建默认数据（工段、员工、用户、设置）  
+**功能**: 检查后端 `/health` 接口是否可用，验证后端及数据库连接状态  
 **返回**: `true` 表示连接成功
 #### 工段管理（Workshop）
 
@@ -787,21 +800,22 @@ try {
 
 ### 常见错误场景
 
-#### 1. localStorage 配额超限
+#### 1. 无法连接后端 / Supabase
 
-**原因**: 数据量过大（通常为 5-10MB 限制）
-
-**解决方案**: 
-- 定期清理历史月份数据
-- 使用导出功能备份后删除旧数据
-
-#### 2. 数据解析失败
-
-**原因**: localStorage 中的 JSON 数据损坏
+**原因**: `http://localhost:3000/api` 未启动、端口冲突或 Session Pooler 连接失效。
 
 **解决方案**:
-- 使用 `db.resetDatabase()` 重置数据库
-- 从备份文件恢复
+- 在终端重新执行 `start /b node server.js`，确认输出 `Backend server running...`
+- 若端口被占用，先运行 `taskkill /F /IM node.exe` 再启动。
+- 确保 `.env.server` 中的 `DATABASE_URL`、`PORT` 配置正确。
+
+#### 2. JSON 数据解析失败
+
+**原因**: 后端返回的历史 `monthly_data` JSON 字段损坏。
+
+**解决方案**:
+- 在 Supabase 控制台检查 `monthly_data` 表，修复或删除异常记录。
+- 重新执行最近一次正确的 `init-db.sql` 或备份脚本。
 
 #### 3. 权限不足
 
@@ -903,17 +917,17 @@ function EmployeeManagementPage() {
 
 ## 附录
 
-### localStorage 数据键名规范
+### Supabase 表结构 (init-db.sql)
 
-| 键名 | 说明 |
+| 表名 | 说明 |
 |------|------|
-| `heshan_db_v9_workshops` | 工段列表 |
-| `heshan_db_v9_employees` | 员工列表 |
-| `heshan_db_v9_users` | 系统用户列表 |
-| `heshan_db_v9_settings` | 全局设置 |
-| `heshan_db_v9_data_{YYYY}_{MM}` | 指定月份的数据 |
+| `employees` | 员工档案与基础分等信息 |
+| `workshops` | 工段/部门结构（含 `departments` JSONB） |
+| `system_users` | 系统登录账户、权限、PIN 码 |
+| `settings` | 全局公告等配置 |
+| `monthly_data` | 每月薪酬计算参数与 `data` JSON | 
 
-说明：v1.1 起取消了 `app_role` 与 `app_user_obj` 的登录持久化键。
+提示：任何结构修改请优先在 `init-db.sql` 中更新并同步到 Supabase。 
 
 ### 性能优化建议
 

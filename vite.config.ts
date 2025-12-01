@@ -4,10 +4,12 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
+    const devPort = Number(env.VITE_DEV_PORT) || 5173;
     return {
       server: {
-        port: 3000,
+        port: devPort,
         host: '0.0.0.0',
+        strictPort: true,
       },
       plugins: [react()],
       define: {
