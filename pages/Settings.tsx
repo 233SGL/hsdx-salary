@@ -1,6 +1,5 @@
 
 import React, { useState, useRef, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth, ROLE_LABELS } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { UserRole, SystemUser, PERMISSION_LIST, Permission } from '../types';
@@ -10,7 +9,6 @@ import {
   RotateCcw, 
   Download, 
   Upload, 
-  MonitorPlay, 
   Lock, 
   CheckCircle,
   AlertTriangle,
@@ -19,15 +17,12 @@ import {
   Trash2,
   Key,
   FileJson,
-  Megaphone,
-  Save,
   Search
 } from 'lucide-react';
 
 export const Settings: React.FC = () => {
   const { hasPermission, user: currentUser } = useAuth();
-  const { resetMonthData, systemUsers, addSystemUser, updateSystemUser, deleteSystemUser, settings, updateSettings } = useData();
-  const navigate = useNavigate();
+  const { resetMonthData, systemUsers, addSystemUser, updateSystemUser, deleteSystemUser, workshops } = useData();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [statusMsg, setStatusMsg] = useState<{type: 'success' | 'error', text: string} | null>(null);
@@ -40,9 +35,6 @@ export const Settings: React.FC = () => {
   
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [rawJson, setRawJson] = useState('');
-
-  // Announcement State
-  const [announcementText, setAnnouncementText] = useState(settings.announcement);
 
   const canManageSystem = hasPermission('MANAGE_SYSTEM');
 
@@ -140,7 +132,8 @@ export const Settings: React.FC = () => {
 
       const userData = {
           ...userForm,
-          permissions: userForm.permissions || []
+          permissions: userForm.permissions || [],
+          scopes: userForm.scopes || []
       } as SystemUser;
 
       if (userForm.id) {
@@ -153,6 +146,7 @@ export const Settings: React.FC = () => {
               role: userForm.role || UserRole.GUEST,
               customRoleName: userForm.customRoleName,
               permissions: userForm.permissions || [],
+              scopes: userForm.scopes || [],
               pinCode: userForm.pinCode,
               isSystem: false
           });
@@ -177,9 +171,13 @@ export const Settings: React.FC = () => {
       }
   };
 
-  const saveAnnouncement = async () => {
-      await updateSettings({ announcement: announcementText });
-      showStatus('success', '公告内容已更新');
+  const toggleScope = (scope: string) => {
+      const currentScopes = userForm.scopes || [];
+      if (currentScopes.includes(scope)) {
+          setUserForm({ ...userForm, scopes: currentScopes.filter(s => s !== scope) });
+      } else {
+          setUserForm({ ...userForm, scopes: [...currentScopes, scope] });
+      }
   };
 
   const inspectData = async () => {
@@ -191,8 +189,8 @@ export const Settings: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-fade-in pb-12">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">系统设置</h1>
-        <p className="text-slate-500">管理数据库连接、用户权限及高级功能配置</p>
+        <h1 className="text-2xl font-bold text-slate-800">系统全局设置</h1>
+        <p className="text-slate-500">管理全局用户权限与数据库维护</p>
       </div>
 
       {statusMsg && (
@@ -201,63 +199,6 @@ export const Settings: React.FC = () => {
               <span className="font-medium">{statusMsg.text}</span>
           </div>
       )}
-
-      {/* 1. Announcement Settings */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-slate-100 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center">
-                  <Megaphone size={20} />
-              </div>
-              <div>
-                  <h3 className="text-lg font-bold text-slate-800">车间公告设置</h3>
-                  <p className="text-sm text-slate-500">在车间轮播模式下底部滚动的通知内容</p>
-              </div>
-          </div>
-          <div className="p-6">
-              <textarea 
-                  className="w-full border border-slate-300 rounded-lg p-3 h-24 focus:ring-2 focus:ring-pink-500 outline-none resize-none"
-                  value={announcementText}
-                  onChange={e => setAnnouncementText(e.target.value)}
-                  placeholder="输入公告内容..."
-              />
-              <div className="mt-3 flex justify-end">
-                  <button 
-                    onClick={saveAnnouncement}
-                    className="flex items-center gap-2 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition"
-                  >
-                      <Save size={16} /> 保存公告
-                  </button>
-              </div>
-          </div>
-      </div>
-
-      {/* 2. Simulation / Workshop Display */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
-                      <MonitorPlay size={20} />
-                  </div>
-                  <div>
-                      <h3 className="text-lg font-bold text-slate-800">薪酬模拟与车间公示</h3>
-                      <p className="text-sm text-slate-500">模拟不同产量/权重下的薪酬情况，或开启车间轮播模式</p>
-                  </div>
-              </div>
-          </div>
-          <div className="p-6 bg-slate-50/50">
-               <div className="flex items-center justify-between">
-                  <div className="text-sm text-slate-600 max-w-lg">
-                      点击进入模拟沙箱环境。该模式下的更改不会影响实际数据库。支持开启全屏轮播功能，用于车间大屏展示。
-                  </div>
-                  <button 
-                    onClick={() => navigate('/simulation')}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all font-medium"
-                  >
-                      <MonitorPlay size={18} /> 进入模拟沙箱
-                  </button>
-              </div>
-          </div>
-      </div>
 
       {/* 3. User Management */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -289,7 +230,7 @@ export const Settings: React.FC = () => {
                             />
                         </div>
                         <button 
-                            onClick={() => { setUserForm({ permissions: [] }); setShowUserModal(true); }}
+                            onClick={() => { setUserForm({ permissions: [], scopes: [] }); setShowUserModal(true); }}
                             className="flex items-center gap-2 px-3 py-2 bg-slate-800 text-white rounded hover:bg-slate-900 text-sm font-medium"
                         >
                             <Plus size={16} /> 新增用户
@@ -301,15 +242,13 @@ export const Settings: React.FC = () => {
                                 <tr>
                                     <th className="px-4 py-3">显示名称</th>
                                     <th className="px-4 py-3">角色/职位</th>
+                                    <th className="px-4 py-3">管辖范围</th>
                                     <th className="px-4 py-3 text-center">PIN</th>
                                     <th className="px-4 py-3 text-right">操作</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {filteredUsers.length > 0 ? filteredUsers.map(u => {
-                                    // 仅保护 u1 (系统管理员) 和 当前用户
-                                    // name 属性在 AuthContext 中通常对应 displayName, 但为了安全我们主要依赖 ID u1 的保护
-                                    // 对于当前用户，如果能匹配到名字则保护
                                     const isProtected = u.id === 'u1' || (currentUser && u.displayName === currentUser.name);
 
                                     return (
@@ -325,6 +264,22 @@ export const Settings: React.FC = () => {
                                             <div className="text-xs text-slate-400 mt-1">
                                                 {u.permissions.length} 项权限
                                             </div>
+                                        </td>
+                                        <td className="px-4 py-2">
+                                            {u.scopes?.includes('all') ? (
+                                                <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded">全厂通用</span>
+                                            ) : (
+                                                <div className="flex flex-wrap gap-1">
+                                                    {u.scopes?.map(s => {
+                                                        const ws = workshops.find(w => w.code === s);
+                                                        return (
+                                                            <span key={s} className="text-xs bg-slate-100 text-slate-600 px-1.5 rounded">
+                                                                {ws ? ws.name : s}
+                                                            </span>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="px-4 py-2 text-center font-mono text-slate-400">****</td>
                                         <td className="px-4 py-2 flex justify-end gap-2">
@@ -349,7 +304,7 @@ export const Settings: React.FC = () => {
                                     </tr>
                                 )}) : (
                                     <tr>
-                                        <td colSpan={4} className="px-4 py-8 text-center text-slate-400">
+                                        <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
                                             未找到匹配用户
                                         </td>
                                     </tr>
@@ -426,27 +381,57 @@ export const Settings: React.FC = () => {
                           </div>
                       </div>
 
-                      <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-3">权限配置</label>
-                          <div className="space-y-4">
-                              {Object.entries(permissionGroups).map(([category, perms]) => (
-                                  <div key={category} className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                                      <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">{category}</h4>
-                                      <div className="grid grid-cols-2 gap-2">
-                                        {(perms as typeof PERMISSION_LIST).map(p => (
-                                            <label key={p.key} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer hover:bg-slate-100 p-1 rounded transition-colors">
-                                                <input 
-                                                    type="checkbox"
-                                                    checked={(userForm.permissions || []).includes(p.key)}
-                                                    onChange={() => togglePermission(p.key)}
-                                                    className="rounded text-blue-600 focus:ring-blue-500"
-                                                />
-                                                <span>{p.label}</span>
-                                            </label>
-                                        ))}
-                                      </div>
-                                  </div>
-                              ))}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                          <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-3">权限配置</label>
+                            <div className="space-y-4 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                                {Object.entries(permissionGroups).map(([category, perms]) => (
+                                    <div key={category} className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                        <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">{category}</h4>
+                                        <div className="grid grid-cols-1 gap-2">
+                                            {(perms as typeof PERMISSION_LIST).map(p => (
+                                                <label key={p.key} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer hover:bg-slate-100 p-1 rounded transition-colors">
+                                                    <input 
+                                                        type="checkbox"
+                                                        checked={(userForm.permissions || []).includes(p.key)}
+                                                        onChange={() => togglePermission(p.key)}
+                                                        className="rounded text-blue-600 focus:ring-blue-500"
+                                                    />
+                                                    <span>{p.label}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-3">管辖工段 (Scope)</label>
+                            <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 space-y-2">
+                                <label className="flex items-center gap-2 text-sm text-purple-700 font-bold cursor-pointer hover:bg-purple-50 p-2 rounded">
+                                    <input 
+                                        type="checkbox"
+                                        checked={(userForm.scopes || []).includes('all')}
+                                        onChange={() => toggleScope('all')}
+                                        className="rounded text-purple-600 focus:ring-purple-500"
+                                    />
+                                    <span>全厂通用 (超级权限)</span>
+                                </label>
+                                <div className="border-t border-slate-200 my-2"></div>
+                                {workshops.map(ws => (
+                                    <label key={ws.code} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer hover:bg-slate-100 p-2 rounded">
+                                        <input 
+                                            type="checkbox"
+                                            checked={(userForm.scopes || []).includes(ws.code)}
+                                            onChange={() => toggleScope(ws.code)}
+                                            disabled={(userForm.scopes || []).includes('all')}
+                                            className="rounded text-blue-600 focus:ring-blue-500"
+                                        />
+                                        <span>{ws.name}</span>
+                                    </label>
+                                ))}
+                            </div>
                           </div>
                       </div>
 

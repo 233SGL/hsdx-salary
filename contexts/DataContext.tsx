@@ -1,5 +1,6 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { MonthlyData, Employee, SalaryRecord, SystemUser, GlobalSettings } from '../types';
+import { MonthlyData, Employee, SalaryRecord, SystemUser, GlobalSettings, Workshop } from '../types';
 import { db } from '../services/db';
 import { getWorkingDays } from '../services/calcService';
 
@@ -8,6 +9,7 @@ interface DataContextType {
   setCurrentDate: (date: { year: number; month: number }) => void;
   currentData: MonthlyData;
   employees: Employee[]; 
+  workshops: Workshop[];
   systemUsers: SystemUser[]; 
   settings: GlobalSettings;
   isLoading: boolean;
@@ -16,10 +18,15 @@ interface DataContextType {
   updateRecord: (employeeId: string, changes: Partial<SalaryRecord>) => void;
   updateDailyLog: (employeeId: string, day: number, hours: number) => void;
   autoFillAttendance: () => Promise<void>;
+  
+  // Employee
   addEmployee: (emp: Omit<Employee, 'id'>) => Promise<void>;
   updateEmployee: (emp: Employee) => Promise<void>;
   removeEmployee: (id: string) => Promise<void>;
   resetMonthData: () => Promise<void>;
+  
+  // Workshops
+  addWorkshopFolder: (workshopId: string, folderName: string) => Promise<void>;
   
   // User Management
   addSystemUser: (user: Omit<SystemUser, 'id'>) => Promise<void>;
@@ -34,7 +41,6 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
-// Updated Defaults matching the user provided image
 const DEFAULT_PARAMS = {
   area: 18000,
   unitPrice: 2.5,
@@ -50,6 +56,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   
   const [currentData, setCurrentData] = useState<MonthlyData | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [workshops, setWorkshops] = useState<Workshop[]>([]);
   const [systemUsers, setSystemUsers] = useState<SystemUser[]>([]);
   const [settings, setSettings] = useState<GlobalSettings>({ announcement: '' });
   
@@ -64,9 +71,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const emps = await db.getEmployees();
         const users = await db.getSystemUsers();
         const sets = await db.getSettings();
+        const ws = await db.getWorkshops();
         setEmployees(emps);
         setSystemUsers(users);
         setSettings(sets);
+        setWorkshops(ws);
       } catch (err) {
         console.error("Failed to load basic data:", err);
       }
@@ -79,7 +88,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     let isMounted = true;
     const loadMonth = async () => {
       if (employees.length === 0 && !currentData) {
-         // Wait for employees to load first, or at least initial boot
          if(employees.length === 0 && isLoading) return; 
       }
 
@@ -105,14 +113,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     return {
                         employeeId: e.id,
                         employeeName: e.name,
-                        workHours: workingDays * dailyTarget, // Default to full attendance
+                        workHours: workingDays * dailyTarget, 
                         expectedHours: workingDays * dailyTarget,
                         baseScoreSnapshot: e.standardBaseScore,
                         dailyLogs: {}
                     };
                 });
             
-            // Sync names if changed
+            // Sync names
             const updatedRecords = existingData.records.map(r => {
                 const emp = employees.find(e => e.id === r.employeeId);
                 return emp ? { ...r, employeeName: emp.name } : r;
@@ -213,7 +221,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const daysInMonth = new Date(year, month, 0).getDate();
     const workingDays = getWorkingDays(year, month);
     
-    // Explicitly type the tuples to satisfy Map constructor
     const empConfigMap = new Map<string, number>(
         employees.map(e => [e.id, e.expectedDailyHours || 12] as [string, number])
     );
@@ -225,7 +232,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         
         for(let d=1; d<=daysInMonth; d++) {
             const date = new Date(year, month - 1, d);
-            // 0 is Sunday
             if (date.getDay() !== 0) {
                 newLogs[d] = dailyTarget;
                 sumWork += dailyTarget;
@@ -246,6 +252,20 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     await persistData({ ...currentData, records: updatedRecords });
     setIsSaving(false);
+  };
+
+  // === Workshops & Folders ===
+  const addWorkshopFolder = async (workshopId: string, folderName: string) => {
+      const targetWs = workshops.find(w => w.id === workshopId);
+      if (!targetWs || targetWs.departments.includes(folderName)) return;
+
+      const updatedWs = { ...targetWs, departments: [...targetWs.departments, folderName] };
+      const newWorkshops = workshops.map(w => w.id === workshopId ? updatedWs : w);
+      
+      setWorkshops(newWorkshops);
+      setIsSaving(true);
+      await db.saveWorkshops(newWorkshops);
+      setIsSaving(false);
   };
 
   // === Employee CRUD ===
@@ -281,7 +301,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const removeEmployee = async (id: string) => {
     const target = employees.find(e => e.id === id);
     if (!target) return;
-    
     const updatedEmp = { ...target, status: 'terminated' as const };
     await updateEmployee(updatedEmp);
   };
@@ -312,7 +331,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setIsSaving(false);
   };
 
-  // === Settings ===
   const updateSettings = async (changes: Partial<GlobalSettings>) => {
       const newSettings = { ...settings, ...changes };
       setSettings(newSettings);
@@ -361,6 +379,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setCurrentDate,
       currentData: safeData,
       employees,
+      workshops,
       systemUsers,
       settings,
       isLoading,
@@ -373,6 +392,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       updateEmployee,
       removeEmployee,
       resetMonthData,
+      addWorkshopFolder,
       addSystemUser,
       updateSystemUser,
       deleteSystemUser,

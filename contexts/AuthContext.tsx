@@ -5,9 +5,10 @@ import { UserRole, Permission, SystemUser } from '../types';
 interface AuthContextType {
   role: UserRole;
   setRole: (role: UserRole) => void;
-  user: { name: string; avatar: string; permissions: Permission[]; role?: UserRole } | null;
+  user: { name: string; avatar: string; permissions: Permission[]; role?: UserRole; scopes: string[] } | null;
   logout: () => void;
   hasPermission: (perm: Permission) => boolean;
+  hasScope: (scope: string) => boolean;
   login: (user: SystemUser) => void;
 }
 
@@ -24,10 +25,23 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 };
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // 每次打开应用都需要重新登录，不从 localStorage 恢复登录状态
-  const [role, setRoleState] = useState<UserRole>(UserRole.GUEST);
+  // Initialize from LocalStorage synchronously
+  const [role, setRoleState] = useState<UserRole>(() => {
+    const saved = localStorage.getItem('app_role');
+    return (saved as UserRole) || UserRole.GUEST;
+  });
 
-  const [user, setUser] = useState<{ name: string; avatar: string; permissions: Permission[]; role?: UserRole } | null>(null);
+  const [user, setUser] = useState<{ name: string; avatar: string; permissions: Permission[]; scopes: string[] } | null>(() => {
+    const savedUserStr = localStorage.getItem('app_user_obj');
+    if (savedUserStr) {
+        try {
+            return JSON.parse(savedUserStr);
+        } catch (e) {
+            return null;
+        }
+    }
+    return null;
+  });
 
   const loginUser = (systemUser: SystemUser) => {
     setRoleState(systemUser.role);
@@ -35,29 +49,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         name: systemUser.displayName,
         avatar: `https://ui-avatars.com/api/?name=${systemUser.displayName}&background=0ea5e9&color=fff`,
         permissions: systemUser.permissions || [],
-        role: systemUser.role
+        role: systemUser.role,
+        scopes: systemUser.scopes || []
     };
     setUser(userObj);
-    // 不再保存到 localStorage，会话仅在内存中维持
+    localStorage.setItem('app_role', systemUser.role);
+    localStorage.setItem('app_user_obj', JSON.stringify(userObj));
   };
 
   const logout = () => {
     setRoleState(UserRole.GUEST);
+    localStorage.removeItem('app_role');
+    localStorage.removeItem('app_user_obj');
     setUser(null);
-    // 不需要清理 localStorage，因为没有保存登录信息
   };
 
   const hasPermission = (perm: Permission): boolean => {
       if (!user) return false;
-      // Explicit check based on permissions array
       if (user.permissions.includes(perm)) return true;
-      // Fallback for Admin role
       if (role === UserRole.ADMIN) return true;
       return false;
   };
 
+  const hasScope = (scope: string): boolean => {
+      if (!user) return false;
+      if (user.scopes.includes('all')) return true;
+      return user.scopes.includes(scope);
+  };
+
   return (
-    <AuthContext.Provider value={{ role, setRole: setRoleState, user, logout, hasPermission, login: loginUser }}>
+    <AuthContext.Provider value={{ role, setRole: () => {}, user, logout, hasPermission, hasScope, login: loginUser }}>
       {children}
     </AuthContext.Provider>
   );

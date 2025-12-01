@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,9 +9,12 @@ export const ProductionData: React.FC = () => {
 
   // Permissions
   const canEditYield = hasPermission('EDIT_YIELD');
-  const canEditMoney = hasPermission('EDIT_MONEY');
+  const canEditUnitPrice = hasPermission('EDIT_UNIT_PRICE');
+  const canEditFixedPack = hasPermission('EDIT_FIXED_PACK');
+  const canEditKPI = hasPermission('EDIT_KPI');
   const canEditWeights = hasPermission('EDIT_WEIGHTS');
-  const hasAccess = canEditYield || canEditMoney || canEditWeights;
+  
+  const hasAccess = canEditYield || canEditUnitPrice || canEditFixedPack || canEditKPI || canEditWeights;
 
   if (!hasAccess) {
     return (
@@ -89,7 +91,7 @@ export const ProductionData: React.FC = () => {
                     <label className="block text-sm font-bold text-slate-700 mb-2">单价 (分/m²)</label>
                     <input 
                         type="number" 
-                        disabled={!canEditMoney}
+                        disabled={!canEditUnitPrice}
                         value={currentData.params.unitPrice}
                         onChange={e => updateParams({ unitPrice: parseFloat(e.target.value) || 0 })}
                         className="w-full text-2xl font-mono border border-slate-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none disabled:bg-slate-50 disabled:text-slate-400"
@@ -99,7 +101,7 @@ export const ProductionData: React.FC = () => {
                     <label className="block text-sm font-bold text-slate-700 mb-2">固定积分包 (Adjustment)</label>
                     <input 
                         type="number" 
-                        disabled={!canEditMoney}
+                        disabled={!canEditFixedPack}
                         value={currentData.params.attendancePack}
                         onChange={e => updateParams({ attendancePack: parseFloat(e.target.value) || 0 })}
                         className="w-full text-lg font-mono border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none disabled:bg-slate-50 disabled:text-slate-400"
@@ -124,7 +126,7 @@ export const ProductionData: React.FC = () => {
                     <label className="block text-sm font-bold text-slate-700 mb-2">KPI 考核分 (Score)</label>
                     <input 
                         type="number" 
-                        disabled={!canEditMoney}
+                        disabled={!canEditKPI}
                         value={currentData.params.kpiScore}
                         onChange={e => updateParams({ kpiScore: parseFloat(e.target.value) || 0 })}
                         className="w-full text-2xl font-mono border border-slate-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-amber-500 outline-none disabled:bg-slate-50 disabled:text-slate-400"
@@ -141,7 +143,7 @@ export const ProductionData: React.FC = () => {
                 </div>
                 <div>
                     <h3 className="text-lg font-bold text-slate-800">分配权重</h3>
-                    <p className="text-xs text-slate-500">调节奖金池分配倾向</p>
+                    <p className="text-xs text-slate-500">调节修正积分池分配倾向</p>
                 </div>
             </div>
             

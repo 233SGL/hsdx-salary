@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -18,7 +17,8 @@ import {
   Activity,
   Calendar,
   AlertTriangle,
-  PieChart as PieChartIcon
+  PieChart as PieChartIcon,
+  ShieldAlert
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -36,8 +36,9 @@ export const Simulation: React.FC = () => {
   const [slideIndex, setSlideIndex] = useState(0);
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Permission to apply changes
-  const canApply = hasPermission('EDIT_WEIGHTS') || hasPermission('EDIT_YIELD');
+  // Permissions
+  const canView = hasPermission('VIEW_SIMULATION');
+  const canApply = hasPermission('APPLY_SIMULATION');
 
   // Initialize sim params from real data
   useEffect(() => {
@@ -78,6 +79,15 @@ export const Simulation: React.FC = () => {
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [isFullscreen]);
+
+  if (!canView) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full text-slate-400">
+            <ShieldAlert size={48} className="mb-4" />
+            <h2 className="text-xl font-semibold">权限不足：您没有查看模拟沙箱的权限</h2>
+        </div>
+      );
+  }
 
   if (!simParams || !currentData) return <div>Loading...</div>;
 
@@ -151,7 +161,7 @@ export const Simulation: React.FC = () => {
 
   const pieData = [
       { name: '基础分支出', value: Math.round(result.totalBasePayout), color: '#64748b' }, // slate-500
-      { name: '奖金池支出', value: Math.round(result.bonusPool), color: '#3b82f6' } // blue-500
+      { name: '修正积分池支出', value: Math.round(result.bonusPool), color: '#3b82f6' } // blue-500
   ];
 
   const SimulationControls = () => (
@@ -244,7 +254,7 @@ export const Simulation: React.FC = () => {
                   </div>
               </div>
               <div className="bg-slate-800/60 backdrop-blur-md p-10 rounded-3xl text-center border border-slate-600/50 shadow-2xl">
-                  <div className="text-slate-400 mb-4 text-xl font-medium">待分奖金池</div>
+                  <div className="text-slate-400 mb-4 text-xl font-medium">待分修正积分池</div>
                   <div className="text-7xl font-bold text-emerald-400 font-mono tracking-tight">
                     ¥{Math.round(result.bonusPool).toLocaleString()}
                   </div>
@@ -281,7 +291,6 @@ export const Simulation: React.FC = () => {
                     <XAxis type="number" stroke="#94a3b8" hide />
                     <YAxis dataKey="name" type="category" stroke="#cbd5e1" width={140} tick={{fontSize: 24, fontWeight: 'bold', fill: '#cbd5e1'}} />
                     <Bar dataKey="Total" fill="#3b82f6" radius={[0, 8, 8, 0]} barSize={56} isAnimationActive={false}>
-                        {/* 整数标签，颜色改为浅蓝/灰白，非纯白 */}
                         <LabelList 
                             dataKey="Total" 
                             position="right" 
@@ -302,7 +311,6 @@ export const Simulation: React.FC = () => {
 
   const renderCustomPieLabel = ({ cx, cy, midAngle, outerRadius, value, name, percent }: any) => {
     const RADIAN = Math.PI / 180;
-    // Reduced outerRadius in Pie is 160. Text goes to radius + 30 => ~190 from center.
     const radius = outerRadius + 40; 
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
@@ -311,7 +319,7 @@ export const Simulation: React.FC = () => {
         <text 
             x={x} 
             y={y} 
-            fill="#93c5fd"  // 浅蓝色，不使用白色
+            fill="#93c5fd"
             textAnchor={x > cx ? 'start' : 'end'} 
             dominantBaseline="central"
             className="text-xl font-bold"
@@ -334,9 +342,9 @@ export const Simulation: React.FC = () => {
                             data={pieData}
                             cx="50%"
                             cy="50%"
-                            labelLine={{ stroke: '#64748b', strokeWidth: 2 }} // 深灰色线条
+                            labelLine={{ stroke: '#64748b', strokeWidth: 2 }}
                             label={renderCustomPieLabel}
-                            outerRadius={160} // Reduced from 220 to prevent overlap
+                            outerRadius={160} 
                             fill="#8884d8"
                             dataKey="value"
                             isAnimationActive={false}
@@ -373,7 +381,7 @@ export const Simulation: React.FC = () => {
                       <div className="text-6xl font-bold text-blue-400 mb-4 font-mono">
                           ¥{Math.round(result.totalPool).toLocaleString()}
                       </div>
-                      <div className="text-xl text-blue-300">包含基础分与奖金池</div>
+                      <div className="text-xl text-blue-300">包含基础分与修正积分池</div>
                   </div>
               </div>
           </div>
@@ -448,7 +456,7 @@ export const Simulation: React.FC = () => {
                             </div>
                         </div>
                         <div>
-                            <div className="text-sm text-slate-500 mb-1">模拟奖金池</div>
+                            <div className="text-sm text-slate-500 mb-1">模拟修正积分池</div>
                             <div className="text-4xl font-bold text-accent font-mono">
                                 ¥{Math.round(result.bonusPool).toLocaleString()}
                             </div>

@@ -34,7 +34,7 @@ export const Dashboard: React.FC = () => {
           color="indigo"
         />
         <MetricCard 
-          label="实际产出奖金" 
+          label="实际产出修正积分" 
           value={`¥${Math.round(result.bonusPool).toLocaleString()}`} 
           icon={TrendingUp} 
           color="emerald"
@@ -55,7 +55,7 @@ export const Dashboard: React.FC = () => {
 
       {/* Main Chart */}
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-        <h3 className="text-lg font-bold text-slate-800 mb-6">员工薪资构成分布 (基础分 + 奖金)</h3>
+        <h3 className="text-lg font-bold text-slate-800 mb-6">员工薪资构成分布 (基础分 + 修正积分)</h3>
         {/* Explicit height container to fix Recharts resize warning */}
         <div style={{ width: '100%', height: 400, minHeight: 400 }}>
           <ResponsiveContainer width="100%" height="100%">
@@ -72,7 +72,7 @@ export const Dashboard: React.FC = () => {
                 formatter={(val: number) => [`¥${val}`, '']}
               />
               <Bar dataKey="base" stackId="a" fill="#94a3b8" name="实得基础分" radius={[0, 0, 4, 4]} />
-              <Bar dataKey="bonus" stackId="a" fill="#0ea5e9" name="分红奖金" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="bonus" stackId="a" fill="#0ea5e9" name="修正积分" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -98,7 +98,7 @@ export const Dashboard: React.FC = () => {
                     </span>
                 </div>
                 <div className="flex justify-between items-center pb-2">
-                    <span className="text-slate-500">奖金池占比</span>
+                    <span className="text-slate-500">修正积分池占比</span>
                     <span className="font-bold text-accent">
                         {result.totalPool > 0 ? ((result.bonusPool / result.totalPool) * 100).toFixed(1) : 0}%
                     </span>
@@ -130,7 +130,7 @@ export const Dashboard: React.FC = () => {
                 </div>
              </div>
              <p className="text-xs text-slate-400 mt-2">
-                * 权重决定了奖金池分配的倾向性。工时权重高倾向于“多劳多得”，基础分权重高倾向于“技能/资历”。
+                * 权重决定了修正积分池分配的倾向性。工时权重高倾向于“多劳多得”，基础分权重高倾向于“技能/资历”。
              </p>
          </div>
       </div>

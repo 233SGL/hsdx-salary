@@ -1,46 +1,73 @@
-import { MonthlyData, Employee, StorageStats, SystemUser, UserRole, Permission, GlobalSettings } from '../types';
+import { MonthlyData, Employee, StorageStats, SystemUser, UserRole, Permission, GlobalSettings, Workshop } from '../types';
 
-const DB_PREFIX = 'heshan_db_v6'; // Increment to force re-seed
+const DB_PREFIX = 'heshan_db_v9'; // Increment for permission schema change
 const LATENCY_MS = 300; 
 
-// Realistic Seed Data matching the user image
-const INITIAL_EMPLOYEES: Employee[] = [
-  { id: '1', name: "齐绍兵", gender: 'male', department: '定型一车间', position: '班长', joinDate: '2018-03-15', standardBaseScore: 8000, status: 'active', phone: '13800138001', expectedDailyHours: 9.5 },
-  { id: '2', name: "张志强", gender: 'male', department: '定型一车间', position: '主机手', joinDate: '2019-07-20', standardBaseScore: 5000, status: 'active', phone: '13800138002', expectedDailyHours: 8 },
-  { id: '3', name: "王甲贵", gender: 'male', department: '定型一车间', position: '副机手', joinDate: '2020-05-10', standardBaseScore: 7300, status: 'active', phone: '13800138003', expectedDailyHours: 12 },
-  { id: '4', name: "玉尚杰", gender: 'male', department: '定型一车间', position: '操作工', joinDate: '2021-11-11', standardBaseScore: 5000, status: 'active', phone: '13800138004', expectedDailyHours: 8 },
-  { id: '5', name: "董华荣", gender: 'male', department: '定型二车间', position: '主机手', joinDate: '2019-02-28', standardBaseScore: 7300, status: 'active', phone: '13800138005', expectedDailyHours: 12 },
-  { id: '6', name: "肖冬贵", gender: 'male', department: '定型二车间', position: '操作工', joinDate: '2020-08-15', standardBaseScore: 7100, status: 'active', phone: '13800138006', expectedDailyHours: 12 },
-  { id: '7', name: "郭建文", gender: 'male', department: '定型二车间', position: '班长', joinDate: '2017-09-01', standardBaseScore: 8000, status: 'active', phone: '13800138007', expectedDailyHours: 12 },
-  { id: '8', name: "陈永松", gender: 'male', department: '后整理', position: '普工', joinDate: '2022-03-01', standardBaseScore: 5500, status: 'active', phone: '13800138008', expectedDailyHours: 8 },
-  { id: '9', name: "李国辉", gender: 'male', department: '后整理', position: '质检', joinDate: '2018-12-12', standardBaseScore: 8000, status: 'active', phone: '13800138009', expectedDailyHours: 12 },
+// Initial Workshops
+const INITIAL_WORKSHOPS: Workshop[] = [
+  { id: 'ws_styling', name: '定型工段', code: 'styling', departments: ['定型一车间', '定型二车间', '后整理'] },
+  { id: 'ws_weaving', name: '织造工段', code: 'weaving', departments: ['织造一班', '织造二班'] }
 ];
 
+// Realistic Seed Data
+const INITIAL_EMPLOYEES: Employee[] = [
+  { id: '1', name: "齐绍兵", gender: 'male', workshopId: 'ws_styling', department: '定型一车间', position: '班长', joinDate: '2018-03-15', standardBaseScore: 8000, status: 'active', phone: '13800138001', expectedDailyHours: 9.5 },
+  { id: '2', name: "张志强", gender: 'male', workshopId: 'ws_styling', department: '定型一车间', position: '主机手', joinDate: '2019-07-20', standardBaseScore: 5000, status: 'active', phone: '13800138002', expectedDailyHours: 8 },
+  { id: '3', name: "王甲贵", gender: 'male', workshopId: 'ws_styling', department: '定型一车间', position: '副机手', joinDate: '2020-05-10', standardBaseScore: 7300, status: 'active', phone: '13800138003', expectedDailyHours: 12 },
+  { id: '4', name: "玉尚杰", gender: 'male', workshopId: 'ws_styling', department: '定型一车间', position: '操作工', joinDate: '2021-11-11', standardBaseScore: 5000, status: 'active', phone: '13800138004', expectedDailyHours: 8 },
+  { id: '5', name: "董华荣", gender: 'male', workshopId: 'ws_styling', department: '定型二车间', position: '主机手', joinDate: '2019-02-28', standardBaseScore: 7300, status: 'active', phone: '13800138005', expectedDailyHours: 12 },
+  { id: '6', name: "肖冬贵", gender: 'male', workshopId: 'ws_styling', department: '定型二车间', position: '操作工', joinDate: '2020-08-15', standardBaseScore: 7100, status: 'active', phone: '13800138006', expectedDailyHours: 12 },
+  { id: '7', name: "郭建文", gender: 'male', workshopId: 'ws_styling', department: '定型二车间', position: '班长', joinDate: '2017-09-01', standardBaseScore: 8000, status: 'active', phone: '13800138007', expectedDailyHours: 12 },
+  { id: '8', name: "陈永松", gender: 'male', workshopId: 'ws_styling', department: '后整理', position: '普工', joinDate: '2022-03-01', standardBaseScore: 5500, status: 'active', phone: '13800138008', expectedDailyHours: 8 },
+  { id: '9', name: "李国辉", gender: 'male', workshopId: 'ws_styling', department: '后整理', position: '质检', joinDate: '2018-12-12', standardBaseScore: 8000, status: 'active', phone: '13800138009', expectedDailyHours: 12 },
+];
+
+// Initial Users with Granular Permissions
 const INITIAL_USERS: SystemUser[] = [
   { 
       id: 'u1', username: 'admin', displayName: '系统管理员', role: UserRole.ADMIN, pinCode: '1234', isSystem: true,
-      permissions: ['EDIT_YIELD', 'EDIT_MONEY', 'EDIT_HOURS', 'EDIT_BASE_SCORE', 'EDIT_WEIGHTS', 'VIEW_SENSITIVE', 'MANAGE_EMPLOYEES', 'MANAGE_SYSTEM']
+      scopes: ['all'],
+      permissions: [
+          'VIEW_DASHBOARD', 'VIEW_PRODUCTION', 'VIEW_ATTENDANCE', 'VIEW_CALCULATOR', 'VIEW_SIMULATION', 'VIEW_EMPLOYEES',
+          'EDIT_YIELD', 'EDIT_UNIT_PRICE', 'EDIT_KPI', 'EDIT_FIXED_PACK', 'EDIT_HOURS', 
+          'EDIT_BASE_SCORE', 'EDIT_WEIGHTS', 'APPLY_SIMULATION', 
+          'VIEW_SENSITIVE', 'MANAGE_ANNOUNCEMENTS', 'MANAGE_EMPLOYEES', 'MANAGE_SYSTEM'
+      ]
   },
   { 
       id: 'u2', username: 'vp_prod', displayName: '生产副总', role: UserRole.VP_PRODUCTION, pinCode: '1234', isSystem: true,
-      permissions: ['EDIT_YIELD', 'EDIT_MONEY', 'EDIT_WEIGHTS', 'VIEW_SENSITIVE', 'EDIT_HOURS']
+      scopes: ['styling', 'weaving'],
+      permissions: [
+          'VIEW_DASHBOARD', 'VIEW_PRODUCTION', 'VIEW_ATTENDANCE', 'VIEW_CALCULATOR', 'VIEW_SIMULATION', 'VIEW_EMPLOYEES',
+          'EDIT_YIELD', 'EDIT_UNIT_PRICE', 'EDIT_KPI', 'EDIT_FIXED_PACK', 'EDIT_WEIGHTS', 
+          'APPLY_SIMULATION', 'VIEW_SENSITIVE', 'EDIT_HOURS', 'MANAGE_ANNOUNCEMENTS'
+      ]
   },
   { 
       id: 'u4', username: 'schedule', displayName: '调度中心', role: UserRole.SCHEDULING, pinCode: '1234', isSystem: true,
-      permissions: ['EDIT_YIELD']
+      scopes: ['styling'], 
+      permissions: ['VIEW_DASHBOARD', 'VIEW_PRODUCTION', 'EDIT_YIELD']
   },
   { 
       id: 'u5', username: 'sec_head', displayName: '工段负责人', role: UserRole.SECTION_HEAD, pinCode: '1234', isSystem: true,
-      permissions: ['EDIT_HOURS', 'EDIT_BASE_SCORE']
+      scopes: ['styling'],
+      permissions: [
+          'VIEW_DASHBOARD', 'VIEW_ATTENDANCE', 'VIEW_EMPLOYEES', 'VIEW_CALCULATOR',
+          'EDIT_HOURS', 'EDIT_BASE_SCORE'
+      ]
   },
   { 
       id: 'u6', username: 'gen_manager', displayName: '总经理', role: UserRole.GENERAL_MANAGER, pinCode: '1234', isSystem: true,
-      permissions: ['VIEW_SENSITIVE', 'EDIT_WEIGHTS', 'MANAGE_EMPLOYEES', 'MANAGE_SYSTEM'] 
+      scopes: ['all'],
+      permissions: [
+          'VIEW_DASHBOARD', 'VIEW_PRODUCTION', 'VIEW_ATTENDANCE', 'VIEW_CALCULATOR', 'VIEW_SIMULATION', 'VIEW_EMPLOYEES',
+          'VIEW_SENSITIVE', 'EDIT_WEIGHTS', 'MANAGE_ANNOUNCEMENTS', 'MANAGE_EMPLOYEES', 'MANAGE_SYSTEM'
+      ] 
   },
 ];
 
 const DEFAULT_SETTINGS: GlobalSettings = {
-    announcement: "安全生产，重在预防。进入车间请务必穿戴好劳保用品。本月产量冲刺目标：20000m²。"
+    announcement: "安全生产，重在预防。进入车间请务必穿戴好劳保用品。本月产量冲刺目标：45,000米。"
 };
 
 export class DatabaseService {
@@ -60,6 +87,12 @@ export class DatabaseService {
     if (this.isConnected) return true;
     await new Promise(resolve => setTimeout(resolve, 600)); 
     
+    // Seed Workshops
+    const wsData = localStorage.getItem(`${DB_PREFIX}_workshops`);
+    if (!wsData) {
+        localStorage.setItem(`${DB_PREFIX}_workshops`, JSON.stringify(INITIAL_WORKSHOPS));
+    }
+
     // Seed Employees
     const empData = localStorage.getItem(`${DB_PREFIX}_employees`);
     if (!empData) {
@@ -93,6 +126,19 @@ export class DatabaseService {
       await this.ensureConnection();
       await this.delay();
       localStorage.setItem(`${DB_PREFIX}_settings`, JSON.stringify(settings));
+  }
+
+  // === Workshops ===
+  public async getWorkshops(): Promise<Workshop[]> {
+      await this.ensureConnection();
+      const data = localStorage.getItem(`${DB_PREFIX}_workshops`);
+      return data ? JSON.parse(data) : [];
+  }
+
+  public async saveWorkshops(workshops: Workshop[]): Promise<void> {
+      await this.ensureConnection();
+      await this.delay();
+      localStorage.setItem(`${DB_PREFIX}_workshops`, JSON.stringify(workshops));
   }
 
   // === System Users ===
@@ -181,6 +227,7 @@ export class DatabaseService {
             localStorage.removeItem(key);
         }
     });
+    localStorage.setItem(`${DB_PREFIX}_workshops`, JSON.stringify(INITIAL_WORKSHOPS));
     localStorage.setItem(`${DB_PREFIX}_employees`, JSON.stringify(INITIAL_EMPLOYEES));
     localStorage.setItem(`${DB_PREFIX}_users`, JSON.stringify(INITIAL_USERS));
     localStorage.setItem(`${DB_PREFIX}_settings`, JSON.stringify(DEFAULT_SETTINGS));

@@ -1,28 +1,75 @@
-
-// Role Definitions based on the handwritten notes
+// Role Definitions
 export enum UserRole {
   ADMIN = 'ADMIN', 
   VP_PRODUCTION = 'VP_PRODUCTION', 
   SCHEDULING = 'SCHEDULING', 
   SECTION_HEAD = 'SECTION_HEAD', 
-  GENERAL_MANAGER = 'GENERAL_MANAGER', // Renamed from MANAGER
+  GENERAL_MANAGER = 'GENERAL_MANAGER',
   GUEST = 'GUEST'
 }
 
-export type Permission = 'EDIT_YIELD' | 'EDIT_MONEY' | 'EDIT_HOURS' | 'EDIT_BASE_SCORE' | 'EDIT_WEIGHTS' | 'VIEW_SENSITIVE' | 'MANAGE_EMPLOYEES' | 'MANAGE_SYSTEM';
+// Granular Permissions: View (Page Access) vs Edit (Action)
+export type Permission = 
+  // --- Page Access (页面访问) ---
+  | 'VIEW_DASHBOARD'
+  | 'VIEW_PRODUCTION'
+  | 'VIEW_ATTENDANCE'
+  | 'VIEW_CALCULATOR'
+  | 'VIEW_SIMULATION'
+  | 'VIEW_EMPLOYEES'
+  
+  // --- Data Entry (数据录入) ---
+  | 'EDIT_YIELD'       // 入库量
+  | 'EDIT_UNIT_PRICE'  // 单价
+  | 'EDIT_FIXED_PACK'  // 固定包
+  | 'EDIT_KPI'         // KPI
+  | 'EDIT_HOURS'       // 工时
+  
+  // --- Salary & Mgmt (薪酬与管理) ---
+  | 'EDIT_BASE_SCORE'  // 基础分
+  | 'EDIT_WEIGHTS'     // 权重
+  | 'APPLY_SIMULATION' // 模拟应用到生产
+  | 'MANAGE_ANNOUNCEMENTS' // 公告
+  | 'MANAGE_EMPLOYEES' // 档案增删改
+  | 'MANAGE_SYSTEM'    // 系统设置
+  | 'VIEW_SENSITIVE';  // 敏感金额查看
 
 export const PERMISSION_LIST: {key: Permission, label: string, category: string}[] = [
-    { key: 'EDIT_YIELD', label: '录入产量 (入库量)', category: '数据录入' },
-    { key: 'EDIT_MONEY', label: '定薪权 (单价/KPI)', category: '数据录入' },
-    { key: 'EDIT_HOURS', label: '工时管理', category: '数据录入' },
-    { key: 'EDIT_BASE_SCORE', label: '评定基础分', category: '薪酬管理' },
-    { key: 'EDIT_WEIGHTS', label: '权重调节', category: '薪酬管理' },
-    { key: 'VIEW_SENSITIVE', label: '查看敏感薪资', category: '薪酬管理' },
-    { key: 'MANAGE_EMPLOYEES', label: '员工档案管理', category: '系统权限' },
-    { key: 'MANAGE_SYSTEM', label: '系统设置管理', category: '系统权限' },
+    // 1. Page Access
+    { key: 'VIEW_DASHBOARD', label: '查看数据大盘', category: '页面访问权限' },
+    { key: 'VIEW_PRODUCTION', label: '查看生产录入页', category: '页面访问权限' },
+    { key: 'VIEW_ATTENDANCE', label: '查看每日工时页', category: '页面访问权限' },
+    { key: 'VIEW_CALCULATOR', label: '查看薪酬计算页', category: '页面访问权限' },
+    { key: 'VIEW_SIMULATION', label: '查看模拟沙箱页', category: '页面访问权限' },
+    { key: 'VIEW_EMPLOYEES', label: '查看员工档案页', category: '页面访问权限' },
+
+    // 2. Production Data
+    { key: 'EDIT_YIELD', label: '录入产量 (入库量)', category: '生产数据管理' },
+    { key: 'EDIT_UNIT_PRICE', label: '调整单价', category: '生产数据管理' },
+    { key: 'EDIT_FIXED_PACK', label: '调整固定积分包', category: '生产数据管理' },
+    { key: 'EDIT_KPI', label: '调整 KPI', category: '生产数据管理' },
+    { key: 'EDIT_HOURS', label: '修改每日工时', category: '生产数据管理' },
+
+    // 3. Salary & Strategy
+    { key: 'EDIT_BASE_SCORE', label: '评定员工基础分', category: '薪酬策略管理' },
+    { key: 'EDIT_WEIGHTS', label: '调节分配权重', category: '薪酬策略管理' },
+    { key: 'APPLY_SIMULATION', label: '应用模拟结果到生产', category: '薪酬策略管理' },
+    { key: 'VIEW_SENSITIVE', label: '查看敏感薪资数据', category: '薪酬策略管理' },
+
+    // 4. System Admin
+    { key: 'MANAGE_ANNOUNCEMENTS', label: '发布车间公告', category: '系统高级管理' },
+    { key: 'MANAGE_EMPLOYEES', label: '员工档案增删改', category: '系统高级管理' },
+    { key: 'MANAGE_SYSTEM', label: '系统设置与用户管理', category: '系统高级管理' },
 ];
 
 export type EmployeeStatus = 'active' | 'probation' | 'leave' | 'terminated';
+
+export interface Workshop {
+  id: string;
+  name: string;
+  code: string; 
+  departments: string[]; 
+}
 
 export interface SystemUser {
   id: string;
@@ -31,6 +78,7 @@ export interface SystemUser {
   role: UserRole; 
   customRoleName?: string; 
   permissions: Permission[]; 
+  scopes: string[]; 
   pinCode: string; 
   avatar?: string;
   isSystem?: boolean; 
@@ -40,7 +88,8 @@ export interface Employee {
   id: string;
   name: string;
   gender: 'male' | 'female';
-  department: string;     
+  workshopId: string; 
+  department: string; 
   position: string;       
   joinDate: string;       
   phone?: string;
@@ -58,7 +107,6 @@ export interface SalaryRecord {
   dailyLogs?: Record<number, number>; 
   expectedHours: number;  
   baseScoreSnapshot: number; 
-  // Calculated fields
   calculatedRealBase?: number;
   calculatedBonus?: number;
   calculatedTotal?: number;

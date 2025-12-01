@@ -1,8 +1,7 @@
-
 import React, { useState, useMemo } from 'react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
-import { UserRole, Employee } from '../types';
+import { Employee, Workshop } from '../types';
 import { 
   Plus, 
   Search, 
@@ -18,10 +17,14 @@ import {
   Phone,
   CreditCard,
   FileText,
-  Clock
+  Clock,
+  FolderOpen,
+  FolderPlus,
+  ChevronRight,
+  MoreVertical,
+  Layers
 } from 'lucide-react';
 
-// Status Badge Component
 const StatusBadge = ({ status }: { status: string }) => {
   const styles: Record<string, string> = {
     active: 'bg-emerald-100 text-emerald-800 border-emerald-200',
@@ -43,23 +46,48 @@ const StatusBadge = ({ status }: { status: string }) => {
 };
 
 export const Employees: React.FC = () => {
-  const { employees, addEmployee, updateEmployee } = useData();
-  const { hasPermission } = useAuth();
+  const { employees, workshops, addEmployee, updateEmployee, addWorkshop, deleteWorkshop, addWorkshopFolder, deleteWorkshopFolder } = useData();
+  const { hasPermission, hasScope } = useAuth();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  
+  // Selection State
+  const [selectedWorkshopId, setSelectedWorkshopId] = useState<string | null>(workshops[0]?.id || null);
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null); // Department Name
+
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
+  const [isWorkshopModalOpen, setIsWorkshopModalOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [newWorkshopName, setNewWorkshopName] = useState('');
+  const [newWorkshopCode, setNewWorkshopCode] = useState('');
   const [editingEmp, setEditingEmp] = useState<Employee | null>(null);
 
-  // Derive unique departments and positions for suggestions
-  const existingDepartments = useMemo(() => Array.from(new Set(employees.map(e => e.department))), [employees]);
-  const existingPositions = useMemo(() => Array.from(new Set(employees.map(e => e.position))), [employees]);
+  const canView = hasPermission('VIEW_EMPLOYEES');
+  const canManage = hasPermission('MANAGE_EMPLOYEES');
+  
+  // Filter Logic
+  const filteredEmployees = useMemo(() => {
+    return employees.filter(emp => {
+      // 1. Scope/Workshop Filter
+      if (selectedWorkshopId && emp.workshopId !== selectedWorkshopId) return false;
+      // 2. Folder/Department Filter
+      if (selectedFolder && emp.department !== selectedFolder) return false;
+      
+      const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                            emp.position.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || emp.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [employees, searchTerm, statusFilter, selectedWorkshopId, selectedFolder]);
 
   // Form State
   const initialFormState: Omit<Employee, 'id'> = {
     name: '',
     gender: 'male',
-    department: '',
+    workshopId: selectedWorkshopId || '',
+    department: selectedFolder || '',
     position: '',
     joinDate: new Date().toISOString().split('T')[0],
     standardBaseScore: 5000,
@@ -70,31 +98,31 @@ export const Employees: React.FC = () => {
   };
   const [formData, setFormData] = useState<Omit<Employee, 'id'>>(initialFormState);
 
-  const canManage = hasPermission('MANAGE_EMPLOYEES');
-  
-  const filteredEmployees = useMemo(() => {
-    return employees.filter(emp => {
-      const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            emp.department.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus = statusFilter === 'all' || emp.status === statusFilter;
-      return matchesSearch && matchesStatus;
-    });
-  }, [employees, searchTerm, statusFilter]);
-
   const handleEditClick = (emp: Employee) => {
+    if (!canManage) return;
     setEditingEmp(emp);
     setFormData({ ...emp, expectedDailyHours: emp.expectedDailyHours || 12 }); 
     setIsModalOpen(true);
   };
 
   const handleCreateClick = () => {
+    if (!canManage) return;
+    if (!selectedWorkshopId) {
+        alert("请先选择一个工段");
+        return;
+    }
     setEditingEmp(null);
-    setFormData(initialFormState);
+    setFormData({ 
+        ...initialFormState, 
+        workshopId: selectedWorkshopId, 
+        department: selectedFolder || '' 
+    });
     setIsModalOpen(true);
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManage) return;
     if (editingEmp) {
         await updateEmployee({ ...formData, id: editingEmp.id });
     } else {
@@ -104,126 +132,266 @@ export const Employees: React.FC = () => {
   };
 
   const handleDelete = async (emp: Employee) => {
-    if (confirm(`确定要将 ${emp.name} 标记为离职吗？\n(历史数据将保留，但不再参与新月份计算)`)) {
+    if (!canManage) return;
+    if (confirm(`确定要将 ${emp.name} 标记为离职吗？\n(历史数据将保留)`)) {
         await updateEmployee({ ...emp, status: 'terminated' });
     }
   };
 
-  if (!canManage) {
+  const handleCreateFolder = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!canManage) return;
+      if (selectedWorkshopId && newFolderName) {
+          await addWorkshopFolder(selectedWorkshopId, newFolderName);
+          setNewFolderName('');
+          setIsFolderModalOpen(false);
+      }
+  };
+
+  const handleDeleteFolder = async (e: React.MouseEvent, wsId: string, folder: string) => {
+      e.stopPropagation();
+      if (!canManage) return;
+      if (confirm(`确定要删除文件夹 "${folder}" 吗？\n注意：这不会删除里面的员工，但他们的部门信息可能需要更新。`)) {
+          await deleteWorkshopFolder(wsId, folder);
+          if (selectedFolder === folder) setSelectedFolder(null);
+      }
+  };
+
+  const handleCreateWorkshop = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!canManage) return;
+      if (newWorkshopName && newWorkshopCode) {
+          await addWorkshop(newWorkshopName, newWorkshopCode);
+          setNewWorkshopName('');
+          setNewWorkshopCode('');
+          setIsWorkshopModalOpen(false);
+      }
+  };
+
+  const handleDeleteWorkshop = async (e: React.MouseEvent, wsId: string, wsName: string) => {
+      e.stopPropagation();
+      if (!canManage) return;
+      if (confirm(`⚠️ 严重警告：确定要删除整个工段 "${wsName}" 吗？\n此操作不可逆！\n请确保该工段下的所有员工已被转移或删除。`)) {
+          await deleteWorkshop(wsId);
+          if (selectedWorkshopId === wsId) setSelectedWorkshopId(null);
+      }
+  };
+
+  if (!canView && !canManage) {
     return (
         <div className="flex flex-col items-center justify-center h-full text-slate-400">
             <ShieldAlert size={48} className="mb-4" />
-            <h2 className="text-xl font-semibold">权限不足：您没有管理员工档案的权限</h2>
+            <h2 className="text-xl font-semibold">权限不足：您没有查看员工档案的权限</h2>
         </div>
     );
   }
 
   return (
-    <div className="space-y-6 h-full flex flex-col animate-fade-in">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">员工档案库</h1>
-          <p className="text-slate-500">全厂人员信息管理、技能评分与状态维护</p>
-        </div>
-        <button 
-            onClick={handleCreateClick}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-lg shadow-blue-200 transition font-medium"
-        >
-            <Plus size={18} /> 新增员工
-        </button>
+    <div className="h-full flex flex-col md:flex-row gap-6 animate-fade-in">
+        
+      {/* LEFT PANE: Workshops & Folders */}
+      <div className="w-full md:w-72 flex-shrink-0 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+          <div className="p-4 border-b border-slate-100 font-bold text-slate-700 flex justify-between items-center bg-slate-50">
+              <span className="flex items-center gap-2"><Layers size={18}/> 组织架构</span>
+              {canManage && (
+                <div className="flex gap-1">
+                    <button 
+                        onClick={() => setIsWorkshopModalOpen(true)}
+                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition" title="新建一级工段"
+                    >
+                        <Plus size={18} />
+                    </button>
+                    <button 
+                        onClick={() => setIsFolderModalOpen(true)}
+                        disabled={!selectedWorkshopId}
+                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition disabled:opacity-30" title="新建部门文件夹"
+                    >
+                        <FolderPlus size={18} />
+                    </button>
+                </div>
+              )}
+          </div>
+          <div className="flex-1 overflow-y-auto p-2 space-y-2">
+              {workshops.map(ws => {
+                  const hasAccess = hasScope('all') || hasScope(ws.code);
+                  if (!hasAccess) return null;
+
+                  const isWsSelected = selectedWorkshopId === ws.id;
+                  
+                  return (
+                      <div key={ws.id} className="group/ws">
+                          <div 
+                              onClick={() => { setSelectedWorkshopId(ws.id); setSelectedFolder(null); }}
+                              className={`flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer font-bold transition-colors ${isWsSelected ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50'}`}
+                          >
+                              <div className="flex items-center gap-2">
+                                <ChevronRight size={16} className={`transition-transform duration-200 ${isWsSelected ? 'rotate-90' : ''}`} />
+                                <span>{ws.name}</span>
+                              </div>
+                              {canManage && (
+                                <button
+                                    onClick={(e) => handleDeleteWorkshop(e, ws.id, ws.name)}
+                                    className="text-slate-300 hover:text-red-500 opacity-0 group-hover/ws:opacity-100 transition-opacity p-1"
+                                    title="删除工段"
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                              )}
+                          </div>
+                          
+                          {isWsSelected && (
+                              <div className="ml-3 mt-1 space-y-0.5 border-l-2 border-slate-200 pl-2 animate-fade-in">
+                                  <div 
+                                      onClick={() => setSelectedFolder(null)}
+                                      className={`px-3 py-2 rounded-md text-sm cursor-pointer transition-colors ${!selectedFolder ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+                                  >
+                                      全部人员
+                                  </div>
+                                  {ws.departments.map(dept => (
+                                      <div 
+                                          key={dept}
+                                          onClick={() => setSelectedFolder(dept)}
+                                          className={`flex items-center justify-between px-3 py-2 rounded-md text-sm cursor-pointer group/folder transition-colors ${selectedFolder === dept ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+                                      >
+                                          <div className="flex items-center gap-2">
+                                            <FolderOpen size={14} className={selectedFolder === dept ? 'text-blue-500' : 'text-slate-400'} />
+                                            <span>{dept}</span>
+                                          </div>
+                                          {canManage && (
+                                            <button
+                                                onClick={(e) => handleDeleteFolder(e, ws.id, dept)}
+                                                className="text-slate-300 hover:text-red-500 opacity-0 group-hover/folder:opacity-100 transition-opacity p-1"
+                                                title="删除文件夹"
+                                            >
+                                                <X size={12} />
+                                            </button>
+                                          )}
+                                      </div>
+                                  ))}
+                              </div>
+                          )}
+                      </div>
+                  )
+              })}
+          </div>
       </div>
 
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4">
-        <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input 
-                type="text" 
-                placeholder="搜索姓名、车间或职位..." 
-                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-            />
-        </div>
-        <div className="flex items-center gap-2">
-            <Filter size={18} className="text-slate-500" />
-            <select 
-                className="border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:outline-none"
-                value={statusFilter}
-                onChange={e => setStatusFilter(e.target.value)}
-            >
-                <option value="all">所有状态</option>
-                <option value="active">正式在职</option>
-                <option value="probation">试用期</option>
-                <option value="leave">休假中</option>
-                <option value="terminated">已离职</option>
-            </select>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-6">
-            {filteredEmployees.map(emp => (
-                <div key={emp.id} className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow p-6 flex flex-col relative group">
-                    <div className="flex justify-between items-start mb-4">
-                        <div className="flex items-center gap-4">
-                            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${emp.gender === 'male' ? 'bg-blue-100 text-blue-600' : 'bg-pink-100 text-pink-600'}`}>
-                                {emp.name[0]}
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-slate-800 text-lg">{emp.name}</h3>
-                                <div className="text-xs text-slate-500 flex items-center gap-1">
-                                    {emp.department} · {emp.position}
-                                </div>
-                            </div>
-                        </div>
-                        <StatusBadge status={emp.status} />
-                    </div>
-                    
-                    <div className="space-y-3 mb-6 flex-1">
-                        <div className="flex justify-between text-sm">
-                            <span className="text-slate-500">入职日期</span>
-                            <span className="font-medium text-slate-700">{emp.joinDate}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                            <span className="text-slate-500">每日工时标准</span>
-                            <span className="font-medium text-slate-700">{emp.expectedDailyHours || 12} 小时</span>
-                        </div>
-                        <div className="flex justify-between text-sm items-center pt-2 border-t border-slate-100">
-                            <span className="text-slate-500 font-bold">技能基础分</span>
-                            <span className="font-bold text-blue-600 text-lg bg-blue-50 px-2 rounded">{emp.standardBaseScore}</span>
-                        </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                        <button 
-                            onClick={() => handleEditClick(emp)}
-                            className="flex-1 py-2 flex items-center justify-center gap-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors"
-                        >
-                            <Edit3 size={16} /> 详情/编辑
-                        </button>
-                        {emp.status !== 'terminated' && (
-                            <button 
-                                onClick={() => handleDelete(emp)}
-                                className="px-3 py-2 rounded-lg border border-red-100 hover:bg-red-50 text-red-500 transition-colors"
-                                title="标记离职"
-                            >
-                                <Trash2 size={16} />
-                            </button>
-                        )}
-                    </div>
-                </div>
-            ))}
-            
-            {filteredEmployees.length === 0 && (
-                <div className="col-span-full flex flex-col items-center justify-center py-12 text-slate-400">
-                    <User size={48} className="mb-4 opacity-50" />
-                    <p>没有找到符合条件的员工</p>
-                </div>
+      {/* RIGHT PANE: Employees List */}
+      <div className="flex-1 flex flex-col space-y-4 overflow-hidden">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+            <h1 className="text-2xl font-bold text-slate-800">
+                {selectedWorkshopId ? workshops.find(w => w.id === selectedWorkshopId)?.name : '所有员工'}
+                {selectedFolder && <span className="text-slate-400"> / {selectedFolder}</span>}
+            </h1>
+            <p className="text-slate-500">人员档案管理</p>
+            </div>
+            {canManage && (
+                <button 
+                    onClick={handleCreateClick}
+                    disabled={!selectedWorkshopId}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-lg shadow-blue-200 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <Plus size={18} /> 新增员工
+                </button>
             )}
         </div>
+
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input 
+                    type="text" 
+                    placeholder="搜索姓名或职位..." 
+                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                />
+            </div>
+            <div className="flex items-center gap-2">
+                <Filter size={18} className="text-slate-500" />
+                <select 
+                    className="border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:outline-none"
+                    value={statusFilter}
+                    onChange={e => setStatusFilter(e.target.value)}
+                >
+                    <option value="all">所有状态</option>
+                    <option value="active">正式在职</option>
+                    <option value="probation">试用期</option>
+                    <option value="leave">休假中</option>
+                    <option value="terminated">已离职</option>
+                </select>
+            </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-6">
+                {filteredEmployees.map(emp => (
+                    <div key={emp.id} className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow p-6 flex flex-col relative group">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="flex items-center gap-4">
+                                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${emp.gender === 'male' ? 'bg-blue-100 text-blue-600' : 'bg-pink-100 text-pink-600'}`}>
+                                    {emp.name[0]}
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-slate-800 text-lg">{emp.name}</h3>
+                                    <div className="text-xs text-slate-500 flex items-center gap-1">
+                                        {emp.department} · {emp.position}
+                                    </div>
+                                </div>
+                            </div>
+                            <StatusBadge status={emp.status} />
+                        </div>
+                        
+                        <div className="space-y-3 mb-6 flex-1">
+                            <div className="flex justify-between text-sm">
+                                <span className="text-slate-500">入职日期</span>
+                                <span className="font-medium text-slate-700">{emp.joinDate}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                                <span className="text-slate-500">每日工时标准</span>
+                                <span className="font-medium text-slate-700">{emp.expectedDailyHours || 12} 小时</span>
+                            </div>
+                            <div className="flex justify-between text-sm items-center pt-2 border-t border-slate-100">
+                                <span className="text-slate-500 font-bold">技能基础分</span>
+                                <span className="font-bold text-blue-600 text-lg bg-blue-50 px-2 rounded">{emp.standardBaseScore}</span>
+                            </div>
+                        </div>
+
+                        {canManage && (
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={() => handleEditClick(emp)}
+                                    className="flex-1 py-2 flex items-center justify-center gap-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors"
+                                >
+                                    <Edit3 size={16} /> 详情/编辑
+                                </button>
+                                {emp.status !== 'terminated' && (
+                                    <button 
+                                        onClick={() => handleDelete(emp)}
+                                        className="px-3 py-2 rounded-lg border border-red-100 hover:bg-red-50 text-red-500 transition-colors"
+                                        title="标记离职"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                ))}
+                
+                {filteredEmployees.length === 0 && (
+                    <div className="col-span-full flex flex-col items-center justify-center py-12 text-slate-400">
+                        <User size={48} className="mb-4 opacity-50" />
+                        <p>该文件夹下没有员工</p>
+                    </div>
+                )}
+            </div>
+        </div>
       </div>
 
-      {isModalOpen && (
+      {/* Employee Modal */}
+      {isModalOpen && canManage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-fade-in flex flex-col">
                 <div className="p-6 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white z-10">
@@ -236,6 +404,7 @@ export const Employees: React.FC = () => {
                 </div>
                 
                 <form onSubmit={handleSave} className="p-6 space-y-6">
+                    {/* Basic info form (similar to before but with fixed workshop select) */}
                     <div className="space-y-4">
                         <h3 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-2">
                             <User size={16} /> 基本信息
@@ -250,6 +419,36 @@ export const Employees: React.FC = () => {
                                 />
                             </div>
                             <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">所属工段</label>
+                                <select 
+                                    disabled
+                                    className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-slate-100"
+                                    value={formData.workshopId}
+                                >
+                                    {workshops.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">部门/文件夹 (可手填)</label>
+                                <input 
+                                    list="dept-list"
+                                    className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                                    value={formData.department} 
+                                    onChange={e => setFormData({...formData, department: e.target.value})}
+                                />
+                                <datalist id="dept-list">
+                                    {workshops.find(w => w.id === formData.workshopId)?.departments.map(d => <option key={d} value={d} />)}
+                                </datalist>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">职位</label>
+                                <input 
+                                    type="text"
+                                    className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                                    value={formData.position} onChange={e => setFormData({...formData, position: e.target.value})}
+                                />
+                            </div>
+                            <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">性别</label>
                                 <select 
                                     className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
@@ -258,60 +457,6 @@ export const Employees: React.FC = () => {
                                     <option value="male">男</option>
                                     <option value="female">女</option>
                                 </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">联系电话</label>
-                                <div className="relative">
-                                    <Phone className="absolute left-3 top-2.5 text-slate-400" size={16} />
-                                    <input 
-                                        type="tel" 
-                                        className="w-full border border-slate-300 rounded-lg pl-10 pr-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                                        value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="space-y-4">
-                        <h3 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-2">
-                            <Briefcase size={16} /> 岗位信息
-                        </h3>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">所属车间/部门 (可手填)</label>
-                                <input 
-                                    list="dept-list"
-                                    className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                                    value={formData.department} 
-                                    onChange={e => setFormData({...formData, department: e.target.value})}
-                                />
-                                <datalist id="dept-list">
-                                    {existingDepartments.map(d => <option key={d} value={d} />)}
-                                </datalist>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">职位 (可手填)</label>
-                                <input 
-                                    list="pos-list"
-                                    className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                                    value={formData.position} 
-                                    onChange={e => setFormData({...formData, position: e.target.value})}
-                                />
-                                <datalist id="pos-list">
-                                    {existingPositions.map(p => <option key={p} value={p} />)}
-                                </datalist>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">入职日期</label>
-                                <div className="relative">
-                                    <Calendar className="absolute left-3 top-2.5 text-slate-400" size={16} />
-                                    <input 
-                                        type="date" 
-                                        className="w-full border border-slate-300 rounded-lg pl-10 pr-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                                        value={formData.joinDate} onChange={e => setFormData({...formData, joinDate: e.target.value})}
-                                    />
-                                </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">在职状态</label>
@@ -327,8 +472,9 @@ export const Employees: React.FC = () => {
                             </div>
                         </div>
                     </div>
-
-                    <div className="space-y-4">
+                    
+                    {/* Score and Hours */}
+                     <div className="space-y-4">
                         <h3 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-2">
                             <CreditCard size={16} /> 薪资与工时标准
                         </h3>
@@ -343,7 +489,6 @@ export const Employees: React.FC = () => {
                                     />
                                     <span className="text-slate-400 text-sm whitespace-nowrap">分</span>
                                 </div>
-                                <div className="text-xs text-slate-500 mt-2">影响基础分计算</div>
                             </div>
 
                             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
@@ -357,42 +502,80 @@ export const Employees: React.FC = () => {
                                     />
                                     <span className="text-slate-400 text-sm whitespace-nowrap">小时</span>
                                 </div>
-                                <div className="text-xs text-slate-500 mt-2">用于智能填充（支持0.5小数）</div>
                             </div>
                         </div>
                     </div>
 
-                    <div className="space-y-4">
-                         <h3 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-2">
-                            <FileText size={16} /> 备注
-                        </h3>
-                        <textarea 
-                            rows={3}
-                            className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                            value={formData.notes || ''} onChange={e => setFormData({...formData, notes: e.target.value})}
-                            placeholder="填写备注信息..."
-                        ></textarea>
-                    </div>
-
                     <div className="pt-4 border-t border-slate-100 flex justify-end gap-3">
-                        <button 
-                            type="button"
-                            onClick={() => setIsModalOpen(false)}
-                            className="px-5 py-2.5 rounded-lg border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition"
-                        >
-                            取消
-                        </button>
-                        <button 
-                            type="submit"
-                            className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition"
-                        >
-                            <Save size={18} />
-                            {editingEmp ? '保存更改' : '确认录入'}
-                        </button>
+                        <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">取消</button>
+                        <button type="submit" className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 shadow-lg">保存</button>
                     </div>
                 </form>
             </div>
         </div>
+      )}
+      
+      {/* New Folder Modal */}
+      {isFolderModalOpen && canManage && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+                  <h3 className="text-lg font-bold mb-4">新建部门文件夹</h3>
+                  <form onSubmit={handleCreateFolder}>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">所属工段</label>
+                      <div className="mb-4 text-sm font-bold text-slate-800 bg-slate-100 px-3 py-2 rounded">
+                          {workshops.find(w => w.id === selectedWorkshopId)?.name}
+                      </div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">文件夹名称</label>
+                      <input 
+                          autoFocus
+                          type="text" required
+                          className="w-full border border-slate-300 rounded-lg px-3 py-2 mb-4 focus:ring-2 focus:ring-blue-500 outline-none"
+                          value={newFolderName}
+                          onChange={e => setNewFolderName(e.target.value)}
+                          placeholder="例如：维修班"
+                      />
+                      <div className="flex justify-end gap-3">
+                           <button type="button" onClick={() => setIsFolderModalOpen(false)} className="px-4 py-2 border border-slate-300 rounded text-slate-700">取消</button>
+                           <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">创建</button>
+                      </div>
+                  </form>
+              </div>
+          </div>
+      )}
+
+      {/* New Workshop Modal */}
+      {isWorkshopModalOpen && canManage && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+                  <h3 className="text-lg font-bold mb-4">新建一级工段</h3>
+                  <form onSubmit={handleCreateWorkshop}>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">工段名称 (Name)</label>
+                      <input 
+                          autoFocus
+                          type="text" required
+                          className="w-full border border-slate-300 rounded-lg px-3 py-2 mb-4 focus:ring-2 focus:ring-blue-500 outline-none"
+                          value={newWorkshopName}
+                          onChange={e => setNewWorkshopName(e.target.value)}
+                          placeholder="例如：染色工段"
+                      />
+                      <label className="block text-sm font-medium text-slate-700 mb-1">唯一标识码 (Code)</label>
+                      <input 
+                          type="text" required
+                          className="w-full border border-slate-300 rounded-lg px-3 py-2 mb-4 focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm"
+                          value={newWorkshopCode}
+                          onChange={e => setNewWorkshopCode(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
+                          placeholder="例如：dyeing"
+                      />
+                      <div className="bg-amber-50 p-3 rounded text-xs text-amber-700 mb-4">
+                          提示：Code 必须是唯一的英文字母，用于权限分配。
+                      </div>
+                      <div className="flex justify-end gap-3">
+                           <button type="button" onClick={() => setIsWorkshopModalOpen(false)} className="px-4 py-2 border border-slate-300 rounded text-slate-700">取消</button>
+                           <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">创建</button>
+                      </div>
+                  </form>
+              </div>
+          </div>
       )}
     </div>
   );

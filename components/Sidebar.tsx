@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
@@ -15,22 +14,19 @@ import {
   ChevronDown,
   ChevronRight,
   Grid3X3,
-  Server
+  Server,
+  MonitorPlay,
+  Megaphone
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext'; 
 
 export const Sidebar = ({ isOpen, toggle }: { isOpen: boolean; toggle: () => void }) => {
-  const { user, logout, role, hasPermission } = useAuth();
+  const { user, logout, role, hasPermission, hasScope } = useAuth();
   const { isSaving } = useData(); 
   const location = useLocation();
 
-  const [expandedSections, setExpandedSections] = useState<string[]>(['styling', 'system']);
-
-  const canEditYield = hasPermission('EDIT_YIELD');
-  const canEditMoney = hasPermission('EDIT_MONEY');
-  const canEditWeights = hasPermission('EDIT_WEIGHTS');
-  const canViewProduction = canEditYield || canEditMoney || canEditWeights;
+  const [expandedSections, setExpandedSections] = useState<string[]>(['styling', 'weaving', 'system']);
 
   const toggleSection = (id: string) => {
       setExpandedSections(prev => 
@@ -43,31 +39,33 @@ export const Sidebar = ({ isOpen, toggle }: { isOpen: boolean; toggle: () => voi
       id: 'styling',
       title: '定型工段',
       icon: Layers,
-      visible: true,
+      visible: hasScope('styling'),
       items: [
-        { icon: LayoutDashboard, label: '数据大盘', to: '/', visible: true },
-        { icon: Factory, label: '生产录入', to: '/production-data', visible: canViewProduction },
-        { icon: CalendarDays, label: '每日工时', to: '/attendance', visible: true },
-        { icon: Calculator, label: '薪酬计算', to: '/calculator', visible: true },
+        { icon: LayoutDashboard, label: '数据大盘', to: '/', visible: hasPermission('VIEW_DASHBOARD') },
+        { icon: Factory, label: '生产录入', to: '/production-data', visible: hasPermission('VIEW_PRODUCTION') },
+        { icon: CalendarDays, label: '每日工时', to: '/attendance', visible: hasPermission('VIEW_ATTENDANCE') },
+        { icon: Calculator, label: '薪酬计算', to: '/calculator', visible: hasPermission('VIEW_CALCULATOR') },
+        { icon: MonitorPlay, label: '薪酬模拟', to: '/simulation', visible: hasPermission('VIEW_SIMULATION') },
+        { icon: Megaphone, label: '工段公告', to: '/styling-settings', visible: hasPermission('MANAGE_ANNOUNCEMENTS') },
       ]
     },
     {
       id: 'weaving',
       title: '织造工段',
       icon: Grid3X3,
-      visible: true,
+      visible: hasScope('weaving'),
       items: [
-        { icon: LayoutDashboard, label: '数据大盘', to: '/weaving', visible: true },
+        { icon: LayoutDashboard, label: '数据大盘', to: '/weaving', visible: hasPermission('VIEW_DASHBOARD') },
       ]
     },
     {
       id: 'system',
       title: '系统管理',
       icon: Server,
-      visible: hasPermission('MANAGE_EMPLOYEES') || hasPermission('MANAGE_SYSTEM'),
+      visible: hasPermission('VIEW_EMPLOYEES') || hasPermission('MANAGE_SYSTEM'),
       items: [
-        { icon: Users, label: '员工档案', to: '/employees', visible: hasPermission('MANAGE_EMPLOYEES') },
-        { icon: Settings, label: '系统设置', to: '/settings', visible: hasPermission('MANAGE_SYSTEM') },
+        { icon: Users, label: '员工档案', to: '/employees', visible: hasPermission('VIEW_EMPLOYEES') },
+        { icon: Settings, label: '全局设置', to: '/settings', visible: hasPermission('MANAGE_SYSTEM') },
       ]
     }
   ];
@@ -115,13 +113,15 @@ export const Sidebar = ({ isOpen, toggle }: { isOpen: boolean; toggle: () => voi
         <nav className="flex-1 p-2 space-y-1 overflow-y-auto custom-scrollbar">
           {menuStructure.filter(section => section.visible).map(section => {
             const isExpanded = expandedSections.includes(section.id);
-            const activeChild = section.items.find(item => item.to === location.pathname);
+            const visibleItems = section.items.filter(i => i.visible !== false);
             
+            if (visibleItems.length === 0) return null;
+
             return (
               <div key={section.id} className="mb-2">
                 <button 
                   onClick={() => toggleSection(section.id)}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors text-sm font-bold uppercase tracking-wider ${activeChild ? 'text-blue-400 bg-slate-800/50' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors text-sm font-bold uppercase tracking-wider ${isExpanded ? 'text-slate-400' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}
                 >
                   <div className="flex items-center gap-2">
                     <section.icon size={16} />
@@ -132,7 +132,7 @@ export const Sidebar = ({ isOpen, toggle }: { isOpen: boolean; toggle: () => voi
                 
                 {isExpanded && (
                   <div className="mt-1 space-y-1 ml-2 pl-2 border-l border-slate-800 animate-fade-in">
-                    {section.items.filter(i => i.visible !== false).map((item) => (
+                    {visibleItems.map((item) => (
                       <NavLink
                         key={item.to}
                         to={item.to}

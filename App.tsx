@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -9,6 +8,7 @@ import { Dashboard } from './pages/Dashboard';
 import { SalaryCalculator } from './pages/SalaryCalculator';
 import { Employees } from './pages/Employees';
 import { Settings } from './pages/Settings';
+import { StylingSettings } from './pages/StylingSettings';
 import { Simulation } from './pages/Simulation';
 import { Attendance } from './pages/Attendance';
 import { ProductionData } from './pages/ProductionData';
@@ -95,6 +95,18 @@ const App: React.FC = () => {
               </Layout>
             } />
 
+            <Route path="/simulation" element={
+              <Layout>
+                <Simulation />
+              </Layout>
+            } />
+
+            <Route path="/styling-settings" element={
+              <Layout>
+                <StylingSettings />
+              </Layout>
+            } />
+
             {/* Weaving Section Routes */}
             <Route path="/weaving" element={
                 <Layout>
@@ -112,12 +124,6 @@ const App: React.FC = () => {
             <Route path="/settings" element={
               <Layout>
                 <Settings />
-              </Layout>
-            } />
-
-            <Route path="/simulation" element={
-              <Layout>
-                <Simulation />
               </Layout>
             } />
 

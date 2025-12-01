@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -24,7 +23,7 @@ export const SalaryCalculator: React.FC = () => {
 
   const exportExcel = () => {
     const wsData = [
-      ["姓名", "工时", "应出勤", "工时占比", "标准分", "实得基础分", "基础占比", "综合权重", "分红奖金", "总分"],
+      ["姓名", "工时", "应出勤", "工时占比", "标准分", "实得基础分", "基础占比", "综合权重", "修正积分", "总分"],
       ...result.records.map(r => [
         r.employeeName,
         r.workHours,
@@ -137,7 +136,7 @@ export const SalaryCalculator: React.FC = () => {
                         <th className="px-4 py-3 text-center font-bold text-slate-700">实得基础分</th>
                         <th className="px-4 py-3 text-center text-xs text-slate-400">基础占比</th>
                         <th className="px-4 py-3 text-center font-bold text-purple-600 bg-purple-50/50">综合权重</th>
-                        <th className="px-4 py-3 text-center font-bold text-accent bg-blue-50/50">分红奖金</th>
+                        <th className="px-4 py-3 text-center font-bold text-accent bg-blue-50/50">修正积分</th>
                         <th className="px-4 py-3 text-center font-bold text-emerald-700 bg-emerald-50/50">总分</th>
                     </tr>
                 </thead>
