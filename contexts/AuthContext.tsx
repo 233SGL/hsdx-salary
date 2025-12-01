@@ -24,23 +24,10 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 };
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // Initialize from LocalStorage synchronously to prevent "flash of login" or white screen
-  const [role, setRoleState] = useState<UserRole>(() => {
-    const saved = localStorage.getItem('app_role');
-    return (saved as UserRole) || UserRole.GUEST;
-  });
+  // 每次打开应用都需要重新登录，不从 localStorage 恢复登录状态
+  const [role, setRoleState] = useState<UserRole>(UserRole.GUEST);
 
-  const [user, setUser] = useState<{ name: string; avatar: string; permissions: Permission[]; role?: UserRole } | null>(() => {
-    const savedUserStr = localStorage.getItem('app_user_obj');
-    if (savedUserStr) {
-        try {
-            return JSON.parse(savedUserStr);
-        } catch (e) {
-            return null;
-        }
-    }
-    return null;
-  });
+  const [user, setUser] = useState<{ name: string; avatar: string; permissions: Permission[]; role?: UserRole } | null>(null);
 
   const loginUser = (systemUser: SystemUser) => {
     setRoleState(systemUser.role);
@@ -51,15 +38,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         role: systemUser.role
     };
     setUser(userObj);
-    localStorage.setItem('app_role', systemUser.role);
-    localStorage.setItem('app_user_obj', JSON.stringify(userObj));
+    // 不再保存到 localStorage，会话仅在内存中维持
   };
 
   const logout = () => {
     setRoleState(UserRole.GUEST);
-    localStorage.removeItem('app_role');
-    localStorage.removeItem('app_user_obj');
     setUser(null);
+    // 不需要清理 localStorage，因为没有保存登录信息
   };
 
   const hasPermission = (perm: Permission): boolean => {
