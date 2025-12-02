@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
-import { useData } from '../contexts/DataContext';
-import { useAuth } from '../contexts/AuthContext';
-import { calculateSalary } from '../services/calcService';
+import { useData } from '../../contexts/DataContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { calculateSalary } from '../../services/calcService';
 import { Download, RefreshCw, Calculator, TrendingUp, DollarSign, Activity, PieChart } from 'lucide-react';
 import * as XLSX from 'xlsx';
 

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useData } from '../contexts/DataContext';
-import { useAuth } from '../contexts/AuthContext';
-import { calculateSalary } from '../services/calcService';
-import { MonthlyParams } from '../types';
+import { useData } from '../../contexts/DataContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { calculateSalary } from '../../services/calcService';
+import { MonthlyParams } from '../../types';
 import { 
   Minimize, 
   Play, 

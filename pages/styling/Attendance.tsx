@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
-import { useData } from '../contexts/DataContext';
-import { useAuth } from '../contexts/AuthContext';
+import { useData } from '../../contexts/DataContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { CalendarDays, AlertCircle, Wand2 } from 'lucide-react';
 
 export const Attendance: React.FC = () => {

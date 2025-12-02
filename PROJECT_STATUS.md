@@ -4,7 +4,7 @@
 
 - **项目名称**: 鹤山定型工段薪酬管理系统（Heshan Payroll Pro）
 - **技术栈**: React + TypeScript + Vite + Tailwind CSS + Node.js + Express + Supabase PostgreSQL
-- **当前版本**: v2.6 - 项目结构优化
+- **当前版本**: v2.7 - 页面结构重组
 - **最后更新**: 2025-12-02
 
 ## 项目结构
@@ -23,6 +23,10 @@ hr/
 ├── docs/                # 项目文档
 │   └── API_DOCUMENTATION.md
 ├── pages/               # 页面组件
+│   ├── auth/            # 认证相关页面
+│   ├── styling/         # 定型工段页面
+│   ├── weaving/         # 织造工段页面
+│   └── system/          # 系统管理页面
 ├── services/            # 服务层
 ├── .env.local           # 本地环境变量
 ├── .env.server          # 服务器环境变量
@@ -43,6 +47,15 @@ hr/
 ```
 
 ## 版本历史
+
+### v2.7 (2025-12-02) - 页面结构重组
+- ✅ 按工段分类整理页面结构
+- ✅ 创建styling、weaving和system三个页面分类目录
+- ✅ 创建auth目录存放登录相关页面
+- ✅ 移动所有页面到对应的分类目录中
+- ✅ 更新App.tsx中的导入路径和路由配置
+- ✅ 创建织造工段Dashboard组件，为后续开发做准备
+- ✅ 提交代码并创建v2.7-页面结构重组标签
 
 ### v2.6 (2025-12-02) - 项目结构优化
 - ✅ 整理项目目录结构，创建config、database和docs目录

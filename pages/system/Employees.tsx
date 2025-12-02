@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { useData } from '../contexts/DataContext';
-import { useAuth } from '../contexts/AuthContext';
-import { Employee, Workshop } from '../types';
+import { useData } from '../../contexts/DataContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { Employee, Workshop } from '../../types';
 import { 
   Plus, 
   Search, 

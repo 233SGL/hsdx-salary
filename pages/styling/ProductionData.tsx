@@ -1,6 +1,6 @@
 import React from 'react';
-import { useData } from '../contexts/DataContext';
-import { useAuth } from '../contexts/AuthContext';
+import { useData } from '../../contexts/DataContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { Factory, ShieldAlert, TrendingUp, DollarSign, Activity, Settings2 } from 'lucide-react';
 
 export const ProductionData: React.FC = () => {

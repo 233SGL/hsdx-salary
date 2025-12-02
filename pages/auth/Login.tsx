@@ -1,11 +1,11 @@
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth, ROLE_LABELS } from '../contexts/AuthContext';
-import { useData } from '../contexts/DataContext';
-import { SystemUser } from '../types';
+import { useAuth, ROLE_LABELS } from '../../contexts/AuthContext';
+import { useData } from '../../contexts/DataContext';
+import { SystemUser } from '../../types';
 import { ShieldCheck, Loader2, Lock, ChevronRight, ShieldAlert } from 'lucide-react';
-import { db } from '../services/db';
+import { db } from '../../services/db';
 
 export const Login: React.FC = () => {
   const { login, user } = useAuth();

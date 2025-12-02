@@ -1,7 +1,7 @@
 import React from 'react';
-import { useData } from '../contexts/DataContext';
-import { calculateSalary } from '../services/calcService';
-import { MetricCard } from '../components/MetricCard';
+import { useData } from '../../contexts/DataContext';
+import { calculateSalary } from '../../services/calcService';
+import { MetricCard } from '../../components/MetricCard';
 import { Coins, Users, TrendingUp, Package } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 

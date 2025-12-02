@@ -1,9 +1,9 @@
 
 import React, { useState, useRef, useMemo } from 'react';
-import { useAuth, ROLE_LABELS } from '../contexts/AuthContext';
-import { useData } from '../contexts/DataContext';
-import { UserRole, SystemUser, PERMISSION_LIST, Permission } from '../types';
-import { db, API_BASE } from '../services/db';
+import { useAuth, ROLE_LABELS } from '../../contexts/AuthContext';
+import { useData } from '../../contexts/DataContext';
+import { UserRole, SystemUser, PERMISSION_LIST, Permission } from '../../types';
+import { db, API_BASE } from '../../services/db';
 import { 
   Database, 
   RotateCcw, 

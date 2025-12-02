@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { useData } from '../contexts/DataContext';
-import { useAuth } from '../contexts/AuthContext';
+import { useData } from '../../contexts/DataContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { Megaphone, Save, CheckCircle } from 'lucide-react';
 
 export const StylingSettings: React.FC = () => {
