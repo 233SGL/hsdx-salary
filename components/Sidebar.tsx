@@ -95,8 +95,14 @@ export const Sidebar = ({ isOpen, toggle }: { isOpen: boolean; toggle: () => voi
             </div>
             <span className="font-bold text-lg tracking-wide">薪酬管理系统</span>
           </div>
-          <button onClick={toggle} className="lg:hidden text-slate-400">
-            <X size={24} />
+          <button
+            type="button"
+            onClick={toggle}
+            className="lg:hidden text-slate-400"
+            aria-label="关闭侧边栏"
+          >
+            <X size={24} aria-hidden="true" />
+            <span className="sr-only">关闭</span>
           </button>
         </div>
 

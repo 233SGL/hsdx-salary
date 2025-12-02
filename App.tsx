@@ -3,15 +3,16 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { DataProvider, useData } from './contexts/DataContext';
 import { Sidebar } from './components/Sidebar';
-import { Login } from './pages/Login';
-import { Dashboard } from './pages/Dashboard';
-import { SalaryCalculator } from './pages/SalaryCalculator';
-import { Employees } from './pages/Employees';
-import { Settings } from './pages/Settings';
-import { StylingSettings } from './pages/StylingSettings';
-import { Simulation } from './pages/Simulation';
-import { Attendance } from './pages/Attendance';
-import { ProductionData } from './pages/ProductionData';
+import { Login } from './pages/auth/Login';
+import { Dashboard } from './pages/styling/Dashboard';
+import { SalaryCalculator } from './pages/styling/SalaryCalculator';
+import { Employees } from './pages/system/Employees';
+import { Settings } from './pages/system/Settings';
+import { StylingSettings } from './pages/styling/StylingSettings';
+import { Simulation } from './pages/styling/Simulation';
+import { Attendance } from './pages/styling/Attendance';
+import { ProductionData } from './pages/styling/ProductionData';
+import { WeavingDashboard } from './pages/weaving/Dashboard';
 import { Menu, Loader2, HardHat } from 'lucide-react';
 
 const Layout = ({ children }: { children?: React.ReactNode }) => {
@@ -58,15 +59,7 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
   );
 };
 
-const WeavingPlaceholder = () => (
-    <div className="h-full flex flex-col items-center justify-center text-slate-400">
-        <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-6">
-            <HardHat size={48} className="text-slate-300" />
-        </div>
-        <h2 className="text-2xl font-bold text-slate-600 mb-2">织造工段</h2>
-        <p>该模块正在开发中，敬请期待...</p>
-    </div>
-);
+
 
 const App: React.FC = () => {
   return (
@@ -116,7 +109,7 @@ const App: React.FC = () => {
             {/* Weaving Section Routes */}
             <Route path="/weaving" element={
                 <Layout>
-                    <WeavingPlaceholder />
+                    <WeavingDashboard />
                 </Layout>
             } />
             
