@@ -4,9 +4,9 @@
 
 # 鹤山薪酬管理系统（React + Vite）
 
-本项目为鹤山定型工段薪酬管理系统的前端代码，使用 React、TypeScript、Vite 与 Tailwind CSS 构建。
+本项目为鹤山定型工段和织造工段薪酬管理系统的前端代码，使用 React、TypeScript、Vite 与 Tailwind CSS 构建。
 
-**当前版本：v2.5 - 前端API修复版本**
+**当前版本：v1.1.0-织造模块**
 ## Supabase 直连数据库（已配置完成）
 
 本项目现在使用 Node.js 后端通过 Session Pooler 直连 Supabase Postgres 数据库。
@@ -29,6 +29,7 @@
    - 打开 Supabase 控制台 → SQL Editor
    - 复制 `database/init-db.sql` 的内容并执行
    - 这会创建 `employees`, `workshops`, `settings`, `system_users`, `monthly_data` 表
+   - `employees` 表包含 `machine_id` 字段用于织造工段机台管理（H1-H11）
 
 2. **安装依赖**
    ```bat
@@ -123,13 +124,20 @@ curl http://localhost:3000/api/health
 
 ```
 components/      # React组件
+  ├── weaving/   # 织造工段专用组件
 contexts/        # React上下文
 pages/           # 页面组件
+  ├── auth/      # 认证页面
+  ├── styling/   # 定型工段页面
+  ├── weaving/   # 织造工段页面
+  └── system/    # 系统管理页面
 services/        # 服务层
 config/          # 配置文件
 database/        # 数据库脚本
 docs/            # 项目文档
 dist/            # 构建输出
+weavingTypes.ts  # 织造工段类型定义
+types.ts         # 通用类型定义
 ```
 
 ## 部署说明
@@ -165,6 +173,23 @@ dist/            # 构建输出
 详见 `docs/API_DOCUMENTATION.md` 获取 API 与类型说明。
 
 ## 更新日志
+
+### v1.1.0-织造模块 (2024-12-03)
+**织造工段功能上线**
+- ✅ 添加织造工段完整功能模块
+  - 织造工段专用数据结构 (weavingTypes.ts)
+  - 等效产量计算器组件
+  - 织造工段大盘、数据录入、薪酬计算、配置管理页面
+- ✅ 修复工段计算隔离问题
+  - 在 DataContext 中过滤织造员工，确保定型工段计算独立
+  - 修复 Employee 和 SystemUser 接口定义
+- ✅ 整合织造人员档案到系统员工管理
+  - 支持织造工段机台号管理 (H1-H11)
+  - 优化日期显示格式 (ISO → YYYY-MM-DD)
+  - 添加入职日期编辑功能
+- ✅ 数据库架构优化
+  - 在 employees 表添加 machine_id 字段
+  - 更新数据库脚本支持织造工段特性
 
 ### v2.5 (2025-12-02)
 - 修复前端无法连接后端API的问题

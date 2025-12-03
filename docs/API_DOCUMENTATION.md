@@ -1,13 +1,3 @@
-# 鹤山薪酬管理系统 API 文档
-
-**版本**: 2.5  
-**更新日期**: 2025年12月2日  
-**重要更新**: 前端API连接修复与系统优化  
-
----
-
-## 目录
-
 1. [概述](#概述)
 2. [类型定义](#类型定义)
 3. [数据库服务 (db.ts)](#数据库服务-dbts)
@@ -20,19 +10,23 @@
 
 ## 概述
 
-和山薪酬管理系统是一个基于 React + TypeScript + Node.js 的工资计算与管理系统。前端通过 REST API 访问本地 Node/Express 后端，后端使用 Session Pooler 直连 Supabase Postgres 数据库，实现持久化存储与共享。系统实现了基于角色的权限控制（RBAC），支持多用户、多部门的薪酬核算。
+鹤山薪酬管理系统是一个基于 React + TypeScript + Node.js 的工资计算与管理系统，支持**定型工段**和**织造工段**两个独立工段的薪酬核算。前端通过 REST API 访问本地 Node/Express 后端，后端使用 Session Pooler 直连 Supabase Postgres 数据库，实现持久化存储与共享。系统实现了基于角色的权限控制（RBAC），支持多用户、多部门的薪酬核算。
 
 重要变更：
 - 从 v1.1 起，应用不再持久化登录状态，刷新或重新打开页面需要重新登录（会话级登录）。
 - 从 v1.2 起，所有业务数据均由后端连接 Supabase 数据库提供，前端不再直接写入浏览器 localStorage。
 - 从 v2.5 起，修复前端无法连接后端API的问题，添加Vite代理配置确保API请求正确转发。
+- **从 v1.1.0 起，新增织造工段完整功能模块，实现工段数据隔离，确保定型和织造工段独立计算。**
 
 ### 核心功能模块
 
 - **用户认证与权限管理**: 基于角色的访问控制
-- **员工档案管理**: 员工信息的增删改查
+- **员工档案管理**: 员工信息的增删改查，支持多工段（定型/织造）
+- **织造工段机台管理**: 支持 H1-H11 机台号分配
 - **考勤管理**: 每日工时记录
-- **薪酬计算**: 基于产量、出勤、基础分的综合计算
+- **薪酬计算**: 
+  - 定型工段：基于产量、出勤、基础分的综合计算
+  - 织造工段：独立的等效产量和薪酬计算逻辑
 - **数据导入导出**: 支持数据备份与恢复
 
 ### 运行架构
@@ -105,7 +99,7 @@ interface Employee {
   id: string;
   name: string;
   gender: 'male' | 'female';
-  workshopId: string;        // 归属工段ID
+  workshopId: string;        // 归属工段ID (ws_styling / ws_weaving)
   department: string;        // 归属部门/车间
   position: string;
   joinDate: string;
@@ -115,6 +109,7 @@ interface Employee {
   status: EmployeeStatus;        // 在职状态
   notes?: string;
   expectedDailyHours?: number;   // 预期日工时
+  machineId?: string;            // 机台号（织造工段专用，H1-H11 或 管理员）
 }
 ```
 
