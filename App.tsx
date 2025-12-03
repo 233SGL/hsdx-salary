@@ -13,6 +13,9 @@ import { Simulation } from './pages/styling/Simulation';
 import { Attendance } from './pages/styling/Attendance';
 import { ProductionData } from './pages/styling/ProductionData';
 import { WeavingDashboard } from './pages/weaving/Dashboard';
+import { DataEntry as WeavingDataEntry } from './pages/weaving/DataEntry';
+import { WeavingCalculator } from './pages/weaving/Calculator';
+import { Configuration as WeavingConfiguration } from './pages/weaving/Configuration';
 import { Menu, Loader2, HardHat } from 'lucide-react';
 
 const Layout = ({ children }: { children?: React.ReactNode }) => {
@@ -24,12 +27,12 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
 
   if (isLoading) {
     return (
-        <div className="flex h-screen items-center justify-center bg-slate-50 text-slate-500">
-            <div className="flex flex-col items-center gap-3">
-                <Loader2 size={40} className="animate-spin text-blue-500" />
-                <p>正在同步数据...</p>
-            </div>
+      <div className="flex h-screen items-center justify-center bg-slate-50 text-slate-500">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 size={40} className="animate-spin text-blue-500" />
+          <p>正在同步数据...</p>
         </div>
+      </div>
     );
   }
 
@@ -50,7 +53,7 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
             <span className="sr-only">打开菜单</span>
           </button>
         </div>
-        
+
         <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
           {children}
         </div>
@@ -68,26 +71,26 @@ const App: React.FC = () => {
         <HashRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
-            
+
             {/* Styling Section Routes */}
             <Route path="/" element={
               <Layout>
                 <Dashboard />
               </Layout>
             } />
-            
+
             <Route path="/production-data" element={
               <Layout>
                 <ProductionData />
               </Layout>
             } />
-            
+
             <Route path="/attendance" element={
               <Layout>
                 <Attendance />
               </Layout>
             } />
-            
+
             <Route path="/calculator" element={
               <Layout>
                 <SalaryCalculator />
@@ -108,11 +111,26 @@ const App: React.FC = () => {
 
             {/* Weaving Section Routes */}
             <Route path="/weaving" element={
-                <Layout>
-                    <WeavingDashboard />
-                </Layout>
+              <Layout>
+                <WeavingDashboard />
+              </Layout>
             } />
-            
+            <Route path="/weaving/data-entry" element={
+              <Layout>
+                <WeavingDataEntry />
+              </Layout>
+            } />
+            <Route path="/weaving/calculator" element={
+              <Layout>
+                <WeavingCalculator />
+              </Layout>
+            } />
+            <Route path="/weaving/config" element={
+              <Layout>
+                <WeavingConfiguration />
+              </Layout>
+            } />
+
             {/* System Routes */}
             <Route path="/employees" element={
               <Layout>
