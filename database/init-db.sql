@@ -20,7 +20,8 @@ CREATE TABLE IF NOT EXISTS employees (
   standard_base_score NUMERIC,
   status TEXT DEFAULT 'active',
   phone TEXT,
-  expected_daily_hours NUMERIC
+  expected_daily_hours NUMERIC,
+  machine_id TEXT
 );
 
 -- System Users
@@ -62,16 +63,16 @@ INSERT INTO settings (id, announcement) VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Insert initial employees (sample)
-INSERT INTO employees (id, name, gender, workshop_id, department, position, join_date, standard_base_score, status, phone, expected_daily_hours) VALUES
-  ('1', '齐绍兵', 'male', 'ws_styling', '定型一车间', '班长', '2018-03-15', 8000, 'active', '13800138001', 9.5),
-  ('2', '张志强', 'male', 'ws_styling', '定型一车间', '主机手', '2019-07-20', 5000, 'active', '13800138002', 8),
-  ('3', '王甲贵', 'male', 'ws_styling', '定型一车间', '副机手', '2020-05-10', 7300, 'active', '13800138003', 12),
-  ('4', '玉尚杰', 'male', 'ws_styling', '定型一车间', '操作工', '2021-11-11', 5000, 'active', '13800138004', 8),
-  ('5', '董华荣', 'male', 'ws_styling', '定型二车间', '主机手', '2019-02-28', 7300, 'active', '13800138005', 12),
-  ('6', '肖冬贵', 'male', 'ws_styling', '定型二车间', '操作工', '2020-08-15', 7100, 'active', '13800138006', 12),
-  ('7', '郭建文', 'male', 'ws_styling', '定型二车间', '班长', '2017-09-01', 8000, 'active', '13800138007', 12),
-  ('8', '陈永松', 'male', 'ws_styling', '后整理', '普工', '2022-03-01', 5500, 'active', '13800138008', 8),
-  ('9', '李国辉', 'male', 'ws_styling', '后整理', '质检', '2018-12-12', 8000, 'active', '13800138009', 12)
+INSERT INTO employees (id, name, gender, workshop_id, department, position, join_date, standard_base_score, status, phone, expected_daily_hours, machine_id) VALUES
+  ('1', '齐绍兵', 'male', 'ws_styling', '定型一车间', '班长', '2018-03-15', 8000, 'active', '13800138001', 9.5, NULL),
+  ('2', '张志强', 'male', 'ws_styling', '定型一车间', '主机手', '2019-07-20', 5000, 'active', '13800138002', 8, NULL),
+  ('3', '王甲贵', 'male', 'ws_styling', '定型一车间', '副机手', '2020-05-10', 7300, 'active', '13800138003', 12, NULL),
+  ('4', '玉尚杰', 'male', 'ws_styling', '定型一车间', '操作工', '2021-11-11', 5000, 'active', '13800138004', 8, NULL),
+  ('5', '董华荣', 'male', 'ws_styling', '定型二车间', '主机手', '2019-02-28', 7300, 'active', '13800138005', 12, NULL),
+  ('6', '肖冬贵', 'male', 'ws_styling', '定型二车间', '操作工', '2020-08-15', 7100, 'active', '13800138006', 12, NULL),
+  ('7', '郭建文', 'male', 'ws_styling', '定型二车间', '班长', '2017-09-01', 8000, 'active', '13800138007', 12, NULL),
+  ('8', '陈永松', 'male', 'ws_styling', '后整理', '普工', '2022-03-01', 5500, 'active', '13800138008', 8, NULL),
+  ('9', '李国辉', 'male', 'ws_styling', '后整理', '质检', '2018-12-12', 8000, 'active', '13800138009', 12, NULL)
 ON CONFLICT (id) DO NOTHING;
 
 -- Insert initial system user (admin)

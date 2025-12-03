@@ -8,9 +8,9 @@ interface DataContextType {
   currentDate: { year: number; month: number };
   setCurrentDate: (date: { year: number; month: number }) => void;
   currentData: MonthlyData;
-  employees: Employee[]; 
+  employees: Employee[];
   workshops: Workshop[];
-  systemUsers: SystemUser[]; 
+  systemUsers: SystemUser[];
   settings: GlobalSettings;
   isLoading: boolean;
   isSaving: boolean;
@@ -18,24 +18,24 @@ interface DataContextType {
   updateRecord: (employeeId: string, changes: Partial<SalaryRecord>) => void;
   updateDailyLog: (employeeId: string, day: number, hours: number) => void;
   autoFillAttendance: () => Promise<void>;
-  
+
   // Employee
   addEmployee: (emp: Omit<Employee, 'id'>) => Promise<void>;
   updateEmployee: (emp: Employee) => Promise<void>;
   removeEmployee: (id: string) => Promise<void>;
   resetMonthData: () => Promise<void>;
-  
+
   // Workshops
   addWorkshopFolder: (workshopId: string, folderName: string) => Promise<void>;
   addWorkshop: (name: string, code: string) => Promise<void>;
   deleteWorkshop: (id: string) => Promise<void>;
   deleteWorkshopFolder: (workshopId: string, folderName: string) => Promise<void>;
-  
+
   // User Management
   addSystemUser: (user: Omit<SystemUser, 'id'>) => Promise<void>;
   updateSystemUser: (user: SystemUser) => Promise<void>;
   deleteSystemUser: (id: string) => Promise<void>;
-  
+
   // Settings
   updateSettings: (settings: Partial<GlobalSettings>) => Promise<void>;
 }
@@ -56,13 +56,13 @@ const DEFAULT_PARAMS = {
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const today = new Date();
   const [currentDate, setCurrentDate] = useState({ year: today.getFullYear(), month: today.getMonth() + 1 });
-  
+
   const [currentData, setCurrentData] = useState<MonthlyData | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [workshops, setWorkshops] = useState<Workshop[]>([]);
   const [systemUsers, setSystemUsers] = useState<SystemUser[]>([]);
   const [settings, setSettings] = useState<GlobalSettings>({ announcement: '' });
-  
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -91,66 +91,73 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     let isMounted = true;
     const loadMonth = async () => {
       if (employees.length === 0 && !currentData) {
-         if(employees.length === 0 && isLoading) return; 
+        if (employees.length === 0 && isLoading) return;
       }
 
       setIsLoading(true);
       const year = currentDate.year;
       const month = currentDate.month;
-      
+
       try {
         const existingData = await db.getMonthlyData(year, month);
-        
+
         if (isMounted) {
           const workingDays = getWorkingDays(year, month);
 
           if (existingData) {
             // Sync new employees into existing month
             const existingIds = new Set(existingData.records.map(r => r.employeeId));
-            const activeEmps = employees.filter(e => e.status !== 'terminated');
-            
+            // Filter out Weaving employees (ws_weaving) as they have their own calculation module
+            const activeEmps = employees.filter(e => e.status !== 'terminated' && e.workshopId !== 'ws_weaving');
+
             const newRecords = activeEmps
-                .filter(e => !existingIds.has(e.id))
-                .map(e => {
-                    const dailyTarget = e.expectedDailyHours || 12;
-                    return {
-                        employeeId: e.id,
-                        employeeName: e.name,
-                        workHours: workingDays * dailyTarget, 
-                        expectedHours: workingDays * dailyTarget,
-                        baseScoreSnapshot: e.standardBaseScore,
-                        dailyLogs: {}
-                    };
-                });
-            
-            // Sync names
-            const updatedRecords = existingData.records.map(r => {
+              .filter(e => !existingIds.has(e.id))
+              .map(e => {
+                const dailyTarget = e.expectedDailyHours || 12;
+                return {
+                  employeeId: e.id,
+                  employeeName: e.name,
+                  workHours: workingDays * dailyTarget,
+                  expectedHours: workingDays * dailyTarget,
+                  baseScoreSnapshot: e.standardBaseScore,
+                  dailyLogs: {}
+                };
+              });
+
+            // Sync names and filter out Weaving employees from existing records
+            const updatedRecords = existingData.records
+              .map(r => {
                 const emp = employees.find(e => e.id === r.employeeId);
                 return emp ? { ...r, employeeName: emp.name } : r;
-            });
+              })
+              .filter(r => {
+                const emp = employees.find(e => e.id === r.employeeId);
+                return emp && emp.workshopId !== 'ws_weaving';
+              });
 
             const mergedData = {
-                ...existingData,
-                records: [...updatedRecords, ...newRecords]
+              ...existingData,
+              records: [...updatedRecords, ...newRecords]
             };
-            
+
             setCurrentData(mergedData);
             if (newRecords.length > 0) db.saveMonthlyData(mergedData);
           } else {
             // Create new
-            const activeEmps = employees.filter(e => e.status !== 'terminated');
+            // Filter out Weaving employees (ws_weaving)
+            const activeEmps = employees.filter(e => e.status !== 'terminated' && e.workshopId !== 'ws_weaving');
             const newData: MonthlyData = {
               id: `${year}-${String(month).padStart(2, '0')}`,
               params: { ...DEFAULT_PARAMS, year, month },
               records: activeEmps.map(e => {
                 const dailyTarget = e.expectedDailyHours || 12;
                 return {
-                    employeeId: e.id,
-                    employeeName: e.name,
-                    workHours: workingDays * dailyTarget,
-                    expectedHours: workingDays * dailyTarget,
-                    baseScoreSnapshot: e.standardBaseScore,
-                    dailyLogs: {}
+                  employeeId: e.id,
+                  employeeName: e.name,
+                  workHours: workingDays * dailyTarget,
+                  expectedHours: workingDays * dailyTarget,
+                  baseScoreSnapshot: e.standardBaseScore,
+                  dailyLogs: {}
                 };
               })
             };
@@ -167,15 +174,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     loadMonth();
     return () => { isMounted = false; };
-  }, [currentDate, employees]); 
+  }, [currentDate, employees]);
 
   const persistData = async (newData: MonthlyData) => {
     setCurrentData(newData);
     setIsSaving(true);
     try {
-        await db.saveMonthlyData(newData);
+      await db.saveMonthlyData(newData);
     } finally {
-        setIsSaving(false);
+      setIsSaving(false);
     }
   };
 
@@ -191,7 +198,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!currentData) return;
     persistData({
       ...currentData,
-      records: currentData.records.map(r => 
+      records: currentData.records.map(r =>
         r.employeeId === employeeId ? { ...r, ...changes } : r
       )
     });
@@ -207,8 +214,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     persistData({
       ...currentData,
-      records: currentData.records.map(r => 
-        r.employeeId === employeeId 
+      records: currentData.records.map(r =>
+        r.employeeId === employeeId
           ? { ...r, dailyLogs: newLogs, workHours: totalHours }
           : r
       )
@@ -218,89 +225,89 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const autoFillAttendance = async () => {
     if (!currentData) return;
     setIsSaving(true);
-    
+
     const year = currentDate.year;
     const month = currentDate.month;
     const daysInMonth = new Date(year, month, 0).getDate();
     const workingDays = getWorkingDays(year, month);
-    
+
     const empConfigMap = new Map<string, number>(
-        employees.map(e => [e.id, e.expectedDailyHours || 12] as [string, number])
+      employees.map(e => [e.id, e.expectedDailyHours || 12] as [string, number])
     );
-    
+
     const updatedRecords = currentData.records.map(record => {
-        const dailyTarget = empConfigMap.get(record.employeeId) || 12;
-        const newLogs: Record<number, number> = {};
-        let sumWork = 0;
-        
-        for(let d=1; d<=daysInMonth; d++) {
-            const date = new Date(year, month - 1, d);
-            if (date.getDay() !== 0) {
-                newLogs[d] = dailyTarget;
-                sumWork += dailyTarget;
-            } else {
-                newLogs[d] = 0;
-            }
+      const dailyTarget = empConfigMap.get(record.employeeId) || 12;
+      const newLogs: Record<number, number> = {};
+      let sumWork = 0;
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const date = new Date(year, month - 1, d);
+        if (date.getDay() !== 0) {
+          newLogs[d] = dailyTarget;
+          sumWork += dailyTarget;
+        } else {
+          newLogs[d] = 0;
         }
-        
-        const expected = workingDays * dailyTarget;
-        
-        return {
-            ...record,
-            dailyLogs: newLogs,
-            workHours: sumWork,
-            expectedHours: expected
-        };
+      }
+
+      const expected = workingDays * dailyTarget;
+
+      return {
+        ...record,
+        dailyLogs: newLogs,
+        workHours: sumWork,
+        expectedHours: expected
+      };
     });
-    
+
     await persistData({ ...currentData, records: updatedRecords });
     setIsSaving(false);
   };
 
   // === Workshops & Folders ===
   const addWorkshopFolder = async (workshopId: string, folderName: string) => {
-      const targetWs = workshops.find(w => w.id === workshopId);
-      if (!targetWs || targetWs.departments.includes(folderName)) return;
+    const targetWs = workshops.find(w => w.id === workshopId);
+    if (!targetWs || targetWs.departments.includes(folderName)) return;
 
-      const updatedWs = { ...targetWs, departments: [...targetWs.departments, folderName] };
-      const newWorkshops = workshops.map(w => w.id === workshopId ? updatedWs : w);
-      
-      setWorkshops(newWorkshops);
-      setIsSaving(true);
-      await db.saveWorkshops(newWorkshops);
-      setIsSaving(false);
+    const updatedWs = { ...targetWs, departments: [...targetWs.departments, folderName] };
+    const newWorkshops = workshops.map(w => w.id === workshopId ? updatedWs : w);
+
+    setWorkshops(newWorkshops);
+    setIsSaving(true);
+    await db.saveWorkshops(newWorkshops);
+    setIsSaving(false);
   };
 
-    const deleteWorkshopFolder = async (workshopId: string, folderName: string) => {
-      const targetWs = workshops.find(w => w.id === workshopId);
-      if (!targetWs) return;
-      if (!targetWs.departments.includes(folderName)) return;
+  const deleteWorkshopFolder = async (workshopId: string, folderName: string) => {
+    const targetWs = workshops.find(w => w.id === workshopId);
+    if (!targetWs) return;
+    if (!targetWs.departments.includes(folderName)) return;
 
-      const updatedWs = { ...targetWs, departments: targetWs.departments.filter(d => d !== folderName) };
-      const newWorkshops = workshops.map(w => w.id === workshopId ? updatedWs : w);
+    const updatedWs = { ...targetWs, departments: targetWs.departments.filter(d => d !== folderName) };
+    const newWorkshops = workshops.map(w => w.id === workshopId ? updatedWs : w);
 
-      setWorkshops(newWorkshops);
-      setIsSaving(true);
-      await db.saveWorkshops(newWorkshops);
-      setIsSaving(false);
-    };
+    setWorkshops(newWorkshops);
+    setIsSaving(true);
+    await db.saveWorkshops(newWorkshops);
+    setIsSaving(false);
+  };
 
-    const addWorkshop = async (name: string, code: string) => {
-      const newWs: Workshop = { id: generateId(), name, code, departments: [] };
-      const newWorkshops = [...workshops, newWs];
-      setWorkshops(newWorkshops);
-      setIsSaving(true);
-      await db.saveWorkshops(newWorkshops);
-      setIsSaving(false);
-    };
+  const addWorkshop = async (name: string, code: string) => {
+    const newWs: Workshop = { id: generateId(), name, code, departments: [] };
+    const newWorkshops = [...workshops, newWs];
+    setWorkshops(newWorkshops);
+    setIsSaving(true);
+    await db.saveWorkshops(newWorkshops);
+    setIsSaving(false);
+  };
 
-    const deleteWorkshop = async (id: string) => {
-      const newWorkshops = workshops.filter(w => w.id !== id);
-      setWorkshops(newWorkshops);
-      setIsSaving(true);
-      await db.saveWorkshops(newWorkshops);
-      setIsSaving(false);
-    };
+  const deleteWorkshop = async (id: string) => {
+    const newWorkshops = workshops.filter(w => w.id !== id);
+    setWorkshops(newWorkshops);
+    setIsSaving(true);
+    await db.saveWorkshops(newWorkshops);
+    setIsSaving(false);
+  };
 
   // === Employee CRUD ===
   const addEmployee = async (empData: Omit<Employee, 'id'>) => {
@@ -316,20 +323,20 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const updateEmployee = async (updatedEmp: Employee) => {
     const newEmps = employees.map(e => e.id === updatedEmp.id ? updatedEmp : e);
-    setEmployees(newEmps); 
+    setEmployees(newEmps);
     setIsSaving(true);
     await db.updateEmployee(updatedEmp);
-    
+
     if (currentData) {
-         const newData = {
-            ...currentData,
-            records: currentData.records.map(r => 
-                r.employeeId === updatedEmp.id 
-                ? { ...r, baseScoreSnapshot: updatedEmp.standardBaseScore, employeeName: updatedEmp.name }
-                : r
-            )
-         };
-         await persistData(newData);
+      const newData = {
+        ...currentData,
+        records: currentData.records.map(r =>
+          r.employeeId === updatedEmp.id
+            ? { ...r, baseScoreSnapshot: updatedEmp.standardBaseScore, employeeName: updatedEmp.name }
+            : r
+        )
+      };
+      await persistData(newData);
     }
     setIsSaving(false);
   };
@@ -343,75 +350,75 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // === System User CRUD ===
   const addSystemUser = async (user: Omit<SystemUser, 'id'>) => {
-      setIsSaving(true);
-      try {
-        const created = await db.createSystemUser({ ...user, id: generateId() });
-        setSystemUsers(prev => [...prev, created]);
-      } finally {
-        setIsSaving(false);
-      }
+    setIsSaving(true);
+    try {
+      const created = await db.createSystemUser({ ...user, id: generateId() });
+      setSystemUsers(prev => [...prev, created]);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const updateSystemUser = async (user: SystemUser) => {
-      setIsSaving(true);
-      try {
-        const updated = await db.updateSystemUserRemote(user);
-        setSystemUsers(prev => prev.map(u => u.id === user.id ? updated : u));
-      } finally {
-        setIsSaving(false);
-      }
+    setIsSaving(true);
+    try {
+      const updated = await db.updateSystemUserRemote(user);
+      setSystemUsers(prev => prev.map(u => u.id === user.id ? updated : u));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const deleteSystemUser = async (id: string) => {
-      setIsSaving(true);
-      try {
-        await db.deleteSystemUserRemote(id);
-        setSystemUsers(prev => prev.filter(u => u.id !== id));
-      } finally {
-        setIsSaving(false);
-      }
+    setIsSaving(true);
+    try {
+      await db.deleteSystemUserRemote(id);
+      setSystemUsers(prev => prev.filter(u => u.id !== id));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const updateSettings = async (changes: Partial<GlobalSettings>) => {
-      const newSettings = { ...settings, ...changes };
-      setSettings(newSettings);
-      setIsSaving(true);
-      await db.saveSettings(newSettings);
-      setIsSaving(false);
+    const newSettings = { ...settings, ...changes };
+    setSettings(newSettings);
+    setIsSaving(true);
+    await db.saveSettings(newSettings);
+    setIsSaving(false);
   };
 
   const resetMonthData = async () => {
     setIsLoading(true);
     const activeEmps = await db.getEmployees();
-    setEmployees(activeEmps); 
-    
+    setEmployees(activeEmps);
+
     const year = currentDate.year;
     const month = currentDate.month;
     const workingDays = getWorkingDays(year, month);
 
     const newData: MonthlyData = {
-        id: `${year}-${String(month).padStart(2, '0')}`,
-        params: { ...DEFAULT_PARAMS, year, month },
-        records: activeEmps.filter(e => e.status !== 'terminated').map(e => {
-            const dailyTarget = e.expectedDailyHours || 12;
-            return {
-                employeeId: e.id,
-                employeeName: e.name,
-                workHours: workingDays * dailyTarget,
-                expectedHours: workingDays * dailyTarget,
-                baseScoreSnapshot: e.standardBaseScore,
-                dailyLogs: {}
-            };
-        })
+      id: `${year}-${String(month).padStart(2, '0')}`,
+      params: { ...DEFAULT_PARAMS, year, month },
+      records: activeEmps.filter(e => e.status !== 'terminated' && e.workshopId !== 'ws_weaving').map(e => {
+        const dailyTarget = e.expectedDailyHours || 12;
+        return {
+          employeeId: e.id,
+          employeeName: e.name,
+          workHours: workingDays * dailyTarget,
+          expectedHours: workingDays * dailyTarget,
+          baseScoreSnapshot: e.standardBaseScore,
+          dailyLogs: {}
+        };
+      })
     };
     await persistData(newData);
     setIsLoading(false);
   };
 
-  const safeData = currentData || { 
-    id: 'loading', 
-    params: { ...DEFAULT_PARAMS, year: currentDate.year, month: currentDate.month }, 
-    records: [] 
+  const safeData = currentData || {
+    id: 'loading',
+    params: { ...DEFAULT_PARAMS, year: currentDate.year, month: currentDate.month },
+    records: []
   };
 
   return (
