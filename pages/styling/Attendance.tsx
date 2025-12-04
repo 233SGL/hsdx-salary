@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { CalendarDays, AlertCircle, Wand2, Trash2 } from 'lucide-react';
 
 export const Attendance: React.FC = () => {
-    const { currentData, currentDate, setCurrentDate, updateDailyLog, autoFillAttendance, isSaving, employees } = useData();
+    const { currentData, currentDate, setCurrentDate, updateDailyLog, autoFillAttendance, clearAllAttendance, isSaving, employees } = useData();
     const { hasPermission } = useAuth();
 
     const canEdit = hasPermission('EDIT_HOURS');
@@ -47,13 +47,33 @@ export const Attendance: React.FC = () => {
         }
     };
 
-    const handleClearAll = () => {
+    const handleClearAll = async () => {
         if (confirm('⚠️ 确定要清除当月所有工时记录吗？\n\n此操作将清空所有员工的工时数据，不可恢复！')) {
-            currentData.records.forEach(emp => {
-                daysArray.forEach(day => {
-                    updateDailyLog(emp.employeeId, day, 0);
+            try {
+                // 直接批量清除，而不是逐个更新
+                const newRecords = currentData.records.map(emp => {
+                    const newDailyLogs = { ...emp.dailyLogs };
+                    daysArray.forEach(day => {
+                        newDailyLogs[day] = 0;
+                    });
+                    return {
+                        ...emp,
+                        dailyLogs: newDailyLogs,
+                        workHours: 0 // 重置总工时
+                    };
                 });
-            });
+                
+                // 批量更新记录
+                await Promise.all(newRecords.map(record => 
+                    db.updateMonthlyRecord(currentDate.year, currentDate.month, record.employeeId, record)
+                ));
+                
+                // 刷新数据
+                window.location.reload();
+            } catch (error) {
+                console.error('清除工时数据失败:', error);
+                alert('清除失败，请重试');
+            }
         }
     };
 

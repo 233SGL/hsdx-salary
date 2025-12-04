@@ -366,6 +366,15 @@ export class DatabaseService {
     if (!response.ok) throw new Error('Failed to update employee');
   }
 
+  public async deleteEmployee(employeeId: string): Promise<void> {
+    await this.ensureConnection();
+    const response = await fetch(`${API_BASE}/employees/${employeeId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (!response.ok) throw new Error('Failed to delete employee');
+  }
+
   // === Monthly Data ===
 
   public async getMonthlyData(year: number, month: number): Promise<MonthlyData | null> {

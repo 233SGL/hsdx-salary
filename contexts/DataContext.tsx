@@ -17,6 +17,7 @@ interface DataContextType {
   updateParams: (params: Partial<MonthlyData['params']>) => void;
   updateRecord: (employeeId: string, changes: Partial<SalaryRecord>) => void;
   updateDailyLog: (employeeId: string, day: number, hours: number) => void;
+  clearAllAttendance: () => Promise<void>;
   autoFillAttendance: () => Promise<void>;
 
   // Employee
@@ -124,7 +125,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 };
               });
 
-            // Sync names and filter out Weaving employees from existing records
+            // Sync names and filter out Weaving employees AND terminated employees from existing records
             const updatedRecords = existingData.records
               .map(r => {
                 const emp = employees.find(e => e.id === r.employeeId);
@@ -132,7 +133,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               })
               .filter(r => {
                 const emp = employees.find(e => e.id === r.employeeId);
-                return emp && emp.workshopId !== 'ws_weaving';
+                // Filter out if employee not found, or is weaving, or is terminated
+                return emp && emp.workshopId !== 'ws_weaving' && emp.status !== 'terminated';
               });
 
             const mergedData = {
@@ -141,7 +143,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             };
 
             setCurrentData(mergedData);
-            if (newRecords.length > 0) db.saveMonthlyData(mergedData);
+            // Always save if we filtered out records or added new ones to ensure DB consistency
+            if (newRecords.length > 0 || updatedRecords.length !== existingData.records.length) {
+              db.saveMonthlyData(mergedData);
+            }
           } else {
             // Create new
             // Filter out Weaving employees (ws_weaving)
@@ -220,6 +225,32 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           : r
       )
     });
+  };
+
+  const clearAllAttendance = async () => {
+    if (!currentData) return;
+    setIsSaving(true);
+
+    const daysInMonth = new Date(currentData.params.year, currentData.params.month, 0).getDate();
+
+    const updatedRecords = currentData.records.map(record => {
+      const newLogs: Record<number, number> = {};
+      for (let d = 1; d <= daysInMonth; d++) {
+        newLogs[d] = 0;
+      }
+      return {
+        ...record,
+        dailyLogs: newLogs,
+        workHours: 0
+      };
+    });
+
+    const newData = {
+      ...currentData,
+      records: updatedRecords
+    };
+
+    await persistData(newData);
   };
 
   const autoFillAttendance = async () => {
@@ -338,6 +369,25 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       };
       await persistData(newData);
     }
+    setIsSaving(false);
+  };
+
+  const deleteEmployee = async (id: string) => {
+    const newEmps = employees.filter(e => e.id !== id);
+    setEmployees(newEmps);
+    setIsSaving(true);
+    
+    // 从月度数据中删除该员工的记录
+    if (currentData) {
+      const newData = {
+        ...currentData,
+        records: currentData.records.filter(r => r.employeeId !== id)
+      };
+      await persistData(newData);
+    }
+    
+    // 从数据库中删除员工
+    await db.deleteEmployee(id);
     setIsSaving(false);
   };
 
