@@ -120,7 +120,7 @@ export const WeavingDataEntry: React.FC<WeavingDataEntryProps> = ({
 
                 <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
-                        出勤天数 (用于基本工资)
+                        出勤天数 (用于基本积分)
                     </label>
                     <input
                         type="number"

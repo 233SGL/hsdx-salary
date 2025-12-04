@@ -21,21 +21,21 @@ export const Dashboard: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">数据大盘</h1>
-          <p className="text-slate-500">{currentDate.year}年{currentDate.month}月 薪酬概览</p>
+          <p className="text-slate-500">{currentDate.year}年{currentDate.month}月 积分概览</p>
         </div>
       </div>
 
       {/* Metric Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <MetricCard 
-          label="本月总薪酬包" 
-          value={`¥${Math.round(result.totalPool).toLocaleString()}`} 
+          label="本月总积分包" 
+          value={`${Math.round(result.totalPool).toLocaleString()}分`} 
           icon={Coins} 
           color="indigo"
         />
         <MetricCard 
           label="实际产出修正积分" 
-          value={`¥${Math.round(result.bonusPool).toLocaleString()}`} 
+          value={`${Math.round(result.bonusPool).toLocaleString()}分`} 
           icon={TrendingUp} 
           color="emerald"
         />
@@ -55,7 +55,7 @@ export const Dashboard: React.FC = () => {
 
       {/* Main Chart */}
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-        <h3 className="text-lg font-bold text-slate-800 mb-6">员工薪资构成分布 (基础分 + 修正积分)</h3>
+        <h3 className="text-lg font-bold text-slate-800 mb-6">员工积分构成分布 (基础分 + 修正积分)</h3>
         <div style={{ width: '100%', height: 400 }}>
           <ResponsiveContainer width="100%" height={400}>
             <BarChart
@@ -64,11 +64,11 @@ export const Dashboard: React.FC = () => {
             >
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
               <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `¥${value}`} />
+              <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}分`} />
               <Tooltip 
                 cursor={{fill: '#f1f5f9'}}
                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                formatter={(val: number) => [`¥${val}`, '']}
+                formatter={(val: number) => [`${val}分`, '']}
                 animationDuration={0}
               />
               <Bar dataKey="base" stackId="a" fill="#94a3b8" name="实得基础分" radius={[0, 0, 4, 4]} isAnimationActive={false} />

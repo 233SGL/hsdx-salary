@@ -91,7 +91,7 @@ export const WeavingConfiguration: React.FC<WeavingConfigurationProps> = ({
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">平均每人目标奖金 (元)</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">平均每人目标奖金 (分)</label>
                                 <input
                                     type="number"
                                     value={localConfig.avgTargetBonus}
@@ -100,7 +100,7 @@ export const WeavingConfiguration: React.FC<WeavingConfigurationProps> = ({
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">运转率奖金单价 (元/1%)</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">运转率奖金单价 (分/1%)</label>
                                 <input
                                     type="number"
                                     value={localConfig.operationRateBonusUnit}

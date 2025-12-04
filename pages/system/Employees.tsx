@@ -56,7 +56,7 @@ const formatDate = (dateString: string): string => {
 };
 
 export const Employees: React.FC = () => {
-    const { employees, workshops, addEmployee, updateEmployee, addWorkshop, deleteWorkshop, addWorkshopFolder, deleteWorkshopFolder } = useData();
+    const { employees, workshops, addEmployee, updateEmployee, deleteEmployee, addWorkshop, deleteWorkshop, addWorkshopFolder, deleteWorkshopFolder } = useData();
     const { hasPermission, hasScope } = useAuth();
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -401,7 +401,7 @@ export const Employees: React.FC = () => {
                                                 <button
                                                     onClick={async () => {
                                                         if (confirm(`⚠️ 警告：确定要永久删除 ${emp.name} 吗？\n\n此操作将删除员工的所有历史数据，不可恢复！`)) {
-                                                            await db.deleteEmployee(emp.id);
+                                                            await deleteEmployee(emp.id);
                                                         }
                                                     }}
                                                     className="px-3 py-2 rounded-lg border border-red-100 hover:bg-red-50 text-red-600 transition-colors"
@@ -555,7 +555,7 @@ export const Employees: React.FC = () => {
                             {/* Score and Hours */}
                             <div className="space-y-4">
                                 <h3 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-2">
-                                    <CreditCard size={16} /> 薪资与工时标准
+                                    <CreditCard size={16} /> 积分与工时标准
                                 </h3>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">

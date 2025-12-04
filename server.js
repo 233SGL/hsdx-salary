@@ -60,6 +60,15 @@ app.put('/api/employees/:id', async (req, res) => {
   }
 });
 
+app.delete('/api/employees/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM employees WHERE id = $1', [req.params.id]);
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Workshops
 app.get('/api/workshops', async (req, res) => {
   try {

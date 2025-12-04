@@ -23,6 +23,7 @@ interface DataContextType {
   // Employee
   addEmployee: (emp: Omit<Employee, 'id'>) => Promise<void>;
   updateEmployee: (emp: Employee) => Promise<void>;
+  deleteEmployee: (id: string) => Promise<void>;
   removeEmployee: (id: string) => Promise<void>;
   resetMonthData: () => Promise<void>;
 
@@ -231,26 +232,30 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!currentData) return;
     setIsSaving(true);
 
-    const daysInMonth = new Date(currentData.params.year, currentData.params.month, 0).getDate();
+    try {
+      const daysInMonth = new Date(currentData.params.year, currentData.params.month, 0).getDate();
 
-    const updatedRecords = currentData.records.map(record => {
-      const newLogs: Record<number, number> = {};
-      for (let d = 1; d <= daysInMonth; d++) {
-        newLogs[d] = 0;
-      }
-      return {
-        ...record,
-        dailyLogs: newLogs,
-        workHours: 0
+      const updatedRecords = currentData.records.map(record => {
+        const newLogs: Record<number, number> = {};
+        for (let d = 1; d <= daysInMonth; d++) {
+          newLogs[d] = 0;
+        }
+        return {
+          ...record,
+          dailyLogs: newLogs,
+          workHours: 0
+        };
+      });
+
+      const newData = {
+        ...currentData,
+        records: updatedRecords
       };
-    });
 
-    const newData = {
-      ...currentData,
-      records: updatedRecords
-    };
-
-    await persistData(newData);
+      await persistData(newData);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const autoFillAttendance = async () => {
@@ -373,22 +378,29 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const deleteEmployee = async (id: string) => {
-    const newEmps = employees.filter(e => e.id !== id);
-    setEmployees(newEmps);
     setIsSaving(true);
-    
-    // 从月度数据中删除该员工的记录
-    if (currentData) {
-      const newData = {
-        ...currentData,
-        records: currentData.records.filter(r => r.employeeId !== id)
-      };
-      await persistData(newData);
+
+    try {
+      // 1. 先从数据库中删除员工（确保数据库一致性）
+      await db.deleteEmployee(id);
+
+      // 2. 从月度数据中删除该员工的记录
+      if (currentData) {
+        const newData = {
+          ...currentData,
+          records: currentData.records.filter(r => r.employeeId !== id)
+        };
+        setCurrentData(newData);
+        // 非阻塞保存月度数据
+        db.saveMonthlyData(newData).catch(err => console.error('Failed to save monthly data after employee delete:', err));
+      }
+
+      // 3. 更新本地员工状态
+      const newEmps = employees.filter(e => e.id !== id);
+      setEmployees(newEmps);
+    } finally {
+      setIsSaving(false);
     }
-    
-    // 从数据库中删除员工
-    await db.deleteEmployee(id);
-    setIsSaving(false);
   };
 
   const removeEmployee = async (id: string) => {
@@ -485,9 +497,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       updateParams,
       updateRecord,
       updateDailyLog,
+      clearAllAttendance,
       autoFillAttendance,
       addEmployee,
       updateEmployee,
+      deleteEmployee,
       removeEmployee,
       resetMonthData,
       addWorkshopFolder,

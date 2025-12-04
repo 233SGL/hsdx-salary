@@ -1,8 +1,8 @@
-# 鹤山薪酬管理系统 - 项目状态总结
+# 鹤山积分管理系统 - 项目状态总结
 
 ## 基本信息
 
-- **项目名称**: 鹤山定型工段和织造工段薪酬管理系统（Heshan Payroll Pro）
+- **项目名称**: 鹤山定型工段和织造工段积分管理系统（Heshan Points Pro）
 - **技术栈**: React + TypeScript + Vite + Tailwind CSS + Node.js + Express + Supabase PostgreSQL
 - **当前版本**: v1.1.0-织造模块
 - **最后更新**: 2024-12-03

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { Factory, ShieldAlert, TrendingUp, DollarSign, Activity, Settings2 } from 'lucide-react';
+import { Factory, ShieldAlert, TrendingUp, Award, Activity, Settings2 } from 'lucide-react';
 
 export const ProductionData: React.FC = () => {
   const { currentData, updateParams } = useData();
@@ -78,12 +78,12 @@ export const ProductionData: React.FC = () => {
         {/* Financial Section */}
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
             <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
-                <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg">
-                    <DollarSign size={24} />
+                    <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg">
+                    <Award size={24} />
                 </div>
                 <div>
-                    <h3 className="text-lg font-bold text-slate-800">单价与定薪</h3>
-                    <p className="text-xs text-slate-500">工价及固定积分包设定</p>
+                    <h3 className="text-lg font-bold text-slate-800">单价与定分</h3>
+                    <p className="text-xs text-slate-500">积分值及固定积分包设定</p>
                 </div>
             </div>
             <div className="space-y-4">

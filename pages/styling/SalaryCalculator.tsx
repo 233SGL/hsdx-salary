@@ -2,7 +2,7 @@
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { calculateSalary } from '../../services/calcService';
-import { Download, RefreshCw, Calculator, TrendingUp, DollarSign, Activity, PieChart } from 'lucide-react';
+import { Download, RefreshCw, Calculator, TrendingUp, Award, Activity, PieChart } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 export const SalaryCalculator: React.FC = () => {
@@ -40,8 +40,8 @@ export const SalaryCalculator: React.FC = () => {
         ];
         const ws = XLSX.utils.aoa_to_sheet(wsData);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "工资表");
-        XLSX.writeFile(wb, `工资表_${currentDate.year}_${currentDate.month}.xlsx`);
+        XLSX.utils.book_append_sheet(wb, ws, "积分表");
+        XLSX.writeFile(wb, `积分表_${currentDate.year}_${currentDate.month}.xlsx`);
     };
 
     return (
@@ -50,7 +50,7 @@ export const SalaryCalculator: React.FC = () => {
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                        <Calculator className="text-accent" /> 薪酬计算
+                        <Calculator className="text-accent" /> 积分计算
                     </h1>
                     <p className="text-slate-500">当前计算月份：{currentDate.year}年{currentDate.month}月</p>
                 </div>
@@ -96,9 +96,9 @@ export const SalaryCalculator: React.FC = () => {
                     </div>
                 </div>
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
-                    <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg"><DollarSign size={20} /></div>
+                    <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg"><Award size={20} /></div>
                     <div>
-                        <div className="text-xs text-slate-500 font-bold uppercase">单价</div>
+                        <div className="text-xs text-slate-500 font-bold uppercase">积分值</div>
                         <div className="font-mono font-bold text-lg">{currentData.params.unitPrice}</div>
                     </div>
                 </div>

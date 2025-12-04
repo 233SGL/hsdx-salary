@@ -10,7 +10,7 @@
 
 ## 概述
 
-鹤山薪酬管理系统是一个基于 React + TypeScript + Node.js 的工资计算与管理系统，支持**定型工段**和**织造工段**两个独立工段的薪酬核算。前端通过 REST API 访问本地 Node/Express 后端，后端使用 Session Pooler 直连 Supabase Postgres 数据库，实现持久化存储与共享。系统实现了基于角色的权限控制（RBAC），支持多用户、多部门的薪酬核算。
+鹤山积分管理系统是一个基于 React + TypeScript + Node.js 的积分计算与管理系统，支持**定型工段**和**织造工段**两个独立工段的积分核算。前端通过 REST API 访问本地 Node/Express 后端，后端使用 Session Pooler 直连 Supabase Postgres 数据库，实现持久化存储与共享。系统实现了基于角色的权限控制（RBAC），支持多用户、多部门的积分核算。
 
 重要变更：
 - 从 v1.1 起，应用不再持久化登录状态，刷新或重新打开页面需要重新登录（会话级登录）。
@@ -113,7 +113,7 @@ interface Employee {
 }
 ```
 
-### 薪酬记录 (SalaryRecord)
+### 积分记录 (SalaryRecord)
 
 ```typescript
 interface SalaryRecord {
@@ -133,9 +133,9 @@ interface MonthlyParams {
   year: number;
   month: number;
   area: number;              // 产量面积 (㎡)
-  unitPrice: number;         // 单价 (元/㎡)
-  attendancePack: number;    // 出勤考核包 (元)
-  kpiScore: number;          // KPI奖励包 (元)
+  unitPrice: number;         // 单价 (分/㎡)
+  attendancePack: number;    // 出勤考核包 (分)
+  kpiScore: number;          // KPI奖励包 (分)
   weightTime: number;        // 工时权重 (%)
   weightBase: number;        // 基础分权重 (%)
 }
@@ -159,12 +159,12 @@ interface CalculationResult {
     workRatio: number;         // 工时占比
     baseRatio: number;         // 基础分占比
     compositeWeight: number;   // 综合权重
-    realBase: number;          // 实际基础工资
+    realBase: number;          // 实际基础积分
     bonus: number;             // 奖金
-    finalScore: number;        // 最终工资
+    finalScore: number;        // 最终积分
   }>;
-  totalPool: number;           // 总薪资池
-  totalBasePayout: number;     // 基础工资总和
+  totalPool: number;           // 总积分池
+  totalBasePayout: number;     // 基础积分总和
   bonusPool: number;           // 奖金池
   sumWorkHours: number;
   sumExpectedHours: number;
@@ -416,36 +416,36 @@ const days = getWorkingDays(2025, 12); // 返回 26 (假设该月有4个周日)
 function calculateSalary(data: MonthlyData): CalculationResult
 ```
 
-**功能**: 根据月度数据计算所有员工的工资
+**功能**: 根据月度数据计算所有员工的积分
 
 **计算逻辑**:
 
 1. **计算总薪资池**:
    ```
-   总薪资池 = (产量面积 × 单价) + 出勤考核包 + KPI奖励包
+   总积分池 = (产量面积 × 单价) + 出勤考核包 + KPI奖励包
    ```
 
 2. **计算实际基础工资**:
    ```
-   实际基础工资 = 标准基础分 × (实际工时 / 预期工时)
+   实际基础积分 = 标准基础分 × (实际工时 / 预期工时)
    ```
 
 3. **计算奖金池**:
    ```
-   奖金池 = 总薪资池 - 所有员工实际基础工资之和
+   奖金池 = 总积分池 - 所有员工实际基础积分之和
    ```
 
 4. **计算综合权重**:
    ```
    工时占比 = 个人工时 / 总工时
-   基础分占比 = 个人实际基础工资 / 总实际基础工资
+   基础分占比 = 个人实际基础积分 / 总实际基础积分
    综合权重 = (工时占比 × 工时权重%) + (基础分占比 × 基础分权重%)
    ```
 
 5. **计算最终工资**:
    ```
    个人奖金 = 奖金池 × 综合权重
-   最终工资 = 实际基础工资 + 个人奖金
+   最终积分 = 实际基础积分 + 个人奖金
    ```
 
 **参数**:
@@ -456,10 +456,10 @@ function calculateSalary(data: MonthlyData): CalculationResult
 **示例**:
 ```typescript
 const result = calculateSalary(monthlyData);
-console.log(`总薪资池: ${result.totalPool}元`);
-console.log(`奖金池: ${result.bonusPool}元`);
+console.log(`总积分池: ${result.totalPool}分`);
+console.log(`奖金池: ${result.bonusPool}分`);
 result.records.forEach(r => {
-  console.log(`${r.employeeName}: ${r.finalScore.toFixed(2)}元`);
+  console.log(`${r.employeeName}: ${r.finalScore.toFixed(2)}分`);
 });
 ```
 
@@ -875,16 +875,16 @@ function SalaryCalculatorPage() {
   // 3. 显示结果
   return (
     <div>
-      <h1>总薪资池: {result.totalPool.toFixed(2)} 元</h1>
-      <h2>奖金池: {result.bonusPool.toFixed(2)} 元</h2>
+      <h1>总积分池: {result.totalPool.toFixed(2)} 分</h1>
+      <h2>奖金池: {result.bonusPool.toFixed(2)} 分</h2>
       <table>
         <thead>
           <tr>
             <th>姓名</th>
             <th>工时</th>
-            <th>基础工资</th>
+            <th>基础积分</th>
             <th>奖金</th>
-            <th>总工资</th>
+            <th>总积分</th>
           </tr>
         </thead>
         <tbody>
@@ -925,7 +925,7 @@ function EmployeeManagementPage() {
       )}
       
       {!hasPermission('VIEW_SENSITIVE') && (
-        <p>您无权查看敏感薪资信息</p>
+        <p>您无权查看敏感积分信息</p>
       )}
     </div>
   );
@@ -944,7 +944,7 @@ function EmployeeManagementPage() {
 | `workshops` | 工段/部门结构（含 `departments` JSONB） |
 | `system_users` | 系统登录账户、权限、PIN 码 |
 | `settings` | 全局公告等配置 |
-| `monthly_data` | 每月薪酬计算参数与 `data` JSON | 
+| `monthly_data` | 每月积分计算参数与 `data` JSON | 
 
 提示：任何结构修改请优先在 `init-db.sql` 中更新并同步到 Supabase。 
 
@@ -960,7 +960,7 @@ function EmployeeManagementPage() {
 1. **PIN 码加密**: 当前 PIN 码明文存储，建议使用哈希算法
 2. **数据加密**: 敏感数据可考虑加密存储
 3. **会话超时**: 添加自动登出机制
-4. **操作日志**: 记录敏感操作（如修改工资、删除员工）
+4. **操作日志**: 记录敏感操作（如修改积分、删除员工）
 
 ---
 

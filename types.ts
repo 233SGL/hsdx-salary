@@ -50,7 +50,7 @@ export const PERMISSION_LIST: { key: Permission, label: string, category: string
   { key: 'VIEW_DASHBOARD', label: '查看数据大盘', category: '页面访问权限' },
   { key: 'VIEW_PRODUCTION', label: '查看生产录入页', category: '页面访问权限' },
   { key: 'VIEW_ATTENDANCE', label: '查看每日工时页', category: '页面访问权限' },
-  { key: 'VIEW_CALCULATOR', label: '查看薪酬计算页', category: '页面访问权限' },
+  { key: 'VIEW_CALCULATOR', label: '查看积分计算页', category: '页面访问权限' },
   { key: 'VIEW_SIMULATION', label: '查看模拟沙箱页', category: '页面访问权限' },
   { key: 'VIEW_EMPLOYEES', label: '查看员工档案页', category: '页面访问权限' },
 
@@ -62,10 +62,10 @@ export const PERMISSION_LIST: { key: Permission, label: string, category: string
   { key: 'EDIT_HOURS', label: '修改每日工时', category: '生产数据管理' },
 
   // 3. Salary & Strategy
-  { key: 'EDIT_BASE_SCORE', label: '评定员工基础分', category: '薪酬策略管理' },
-  { key: 'EDIT_WEIGHTS', label: '调节分配权重', category: '薪酬策略管理' },
-  { key: 'APPLY_SIMULATION', label: '应用模拟结果到生产', category: '薪酬策略管理' },
-  { key: 'VIEW_SENSITIVE', label: '查看敏感薪资数据', category: '薪酬策略管理' },
+  { key: 'EDIT_BASE_SCORE', label: '评定员工基础分', category: '积分策略管理' },
+  { key: 'EDIT_WEIGHTS', label: '调节分配权重', category: '积分策略管理' },
+  { key: 'APPLY_SIMULATION', label: '应用模拟结果到生产', category: '积分策略管理' },
+  { key: 'VIEW_SENSITIVE', label: '查看敏感积分数据', category: '积分策略管理' },
 
   // 4. System Admin
   { key: 'MANAGE_ANNOUNCEMENTS', label: '发布车间公告', category: '系统高级管理' },
@@ -74,7 +74,7 @@ export const PERMISSION_LIST: { key: Permission, label: string, category: string
 
   // 5. Weaving Section Page Access
   { key: 'VIEW_WEAVING_DATA_ENTRY', label: '查看织造数据录入', category: '织造工段访问' },
-  { key: 'VIEW_WEAVING_CALCULATOR', label: '查看织造薪酬计算', category: '织造工段访问' },
+  { key: 'VIEW_WEAVING_CALCULATOR', label: '查看织造积分计算', category: '织造工段访问' },
   { key: 'VIEW_WEAVING_EMPLOYEES', label: '查看织造人员档案', category: '织造工段访问' },
   { key: 'VIEW_WEAVING_CONFIG', label: '查看织造工段配置', category: '织造工段访问' },
 
