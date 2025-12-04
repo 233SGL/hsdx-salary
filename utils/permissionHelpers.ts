@@ -12,7 +12,7 @@
  * @module utils/permissionHelpers
  */
 
-import { Permission, PageType, EditPermission, WorkshopScope } from './types';
+import { Permission, PageType, EditPermission, WorkshopScope } from '../types';
 
 /**
  * 将旧权限列表转换为新权限结构
@@ -49,10 +49,10 @@ export function convertOldPermissionsToNew(oldPermissions: Permission[], scopes:
 
     /**
      * 编辑权限映射表
-     * 将旧的 EDIT_*/MANAGE_* 权限映射到新的 EditPermission
+     * 将旧的 EDIT_xxx / MANAGE_xxx 权限映射到新的 EditPermission
      */
     const editMapping: Record<string, EditPermission> = {
-        'EDIT_YIELD': '编辑_production_data',
+        'EDIT_YIELD': 'edit_production_data',
         'EDIT_UNIT_PRICE': 'edit_production_data',
         'EDIT_FIXED_PACK': 'edit_production_data',
         'EDIT_KPI': 'edit_production_data',
