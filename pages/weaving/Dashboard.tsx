@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { HardHat, TrendingUp, Users, Activity, AlertCircle } from 'lucide-react';
 import { WeavingConfig, WeavingMonthlyData, WeavingCalculationResult, DEFAULT_WEAVING_CONFIG } from '../../weavingTypes';
 import { WeavingResults } from '../../components/weaving/WeavingResults';
@@ -83,7 +83,7 @@ export const WeavingDashboard = () => {
           织造工段 - 数据大盘
         </h1>
         <p className="text-slate-600">
-          管理员班考核指标概览与薪酬分析
+          管理员班考核指标概览与积分分析
         </p>
       </div>
 
@@ -127,10 +127,10 @@ export const WeavingDashboard = () => {
           </div>
         </div>
 
-        {/* 薪酬计算结果展示 */}
+        {/* 积分计算结果展示 */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
-            <h3 className="font-bold text-slate-800">当月薪酬预估</h3>
+            <h3 className="font-bold text-slate-800">当月积分预估</h3>
           </div>
           <div className="p-6">
             <WeavingResults result={result} />

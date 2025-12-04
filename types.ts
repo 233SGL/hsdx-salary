@@ -1,4 +1,4 @@
-// Role Definitions
+﻿// Role Definitions
 export enum UserRole {
   ADMIN = 'ADMIN',
   VP_PRODUCTION = 'VP_PRODUCTION',
@@ -25,7 +25,7 @@ export type Permission =
   | 'EDIT_KPI'         // KPI
   | 'EDIT_HOURS'       // 工时
 
-  // --- Salary & Mgmt (薪酬与管理) ---
+  // --- Salary & Mgmt (积分与管理) ---
   | 'EDIT_BASE_SCORE'  // 基础分
   | 'EDIT_WEIGHTS'     // 权重
   | 'APPLY_SIMULATION' // 模拟应用到生产
@@ -37,7 +37,7 @@ export type Permission =
   // --- Weaving Section (织造工段) ---
   // 页面访问权限
   | 'VIEW_WEAVING_DATA_ENTRY'   // 查看织造数据录入页
-  | 'VIEW_WEAVING_CALCULATOR'   // 查看织造薪酬计算页
+  | 'VIEW_WEAVING_CALCULATOR'   // 查看织造积分计算页
   | 'VIEW_WEAVING_EMPLOYEES'    // 查看织造人员档案页
   | 'VIEW_WEAVING_CONFIG'       // 查看织造工段配置页
   // 操作权限

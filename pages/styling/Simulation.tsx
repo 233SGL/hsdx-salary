@@ -133,7 +133,7 @@ export const Simulation: React.FC = () => {
   };
 
   const handleApplyToProduction = () => {
-      if (confirm(`⚠️ 确认操作\n\n您即将把当前的模拟参数应用到【${currentData.id}】的正式生产数据中。\n此操作会覆盖当前的薪酬设置。\n\n是否继续？`)) {
+      if (confirm(`⚠️ 确认操作\n\n您即将把当前的模拟参数应用到【${currentData.id}】的正式生产数据中。\n此操作会覆盖当前的积分设置。\n\n是否继续？`)) {
           updateParams(simParams);
           alert('参数已成功应用到生产环境！');
       }
@@ -263,10 +263,10 @@ export const Simulation: React.FC = () => {
 
   const SlideOverview = () => (
       <div className="flex flex-col items-center justify-center h-full p-12 relative z-10 animate-fade-in">
-          <h2 className="text-4xl font-bold mb-16 text-blue-200 tracking-wider">本月薪酬概览</h2>
+          <h2 className="text-4xl font-bold mb-16 text-blue-200 tracking-wider">本月积分概览</h2>
           <div className="grid grid-cols-3 gap-12 w-full max-w-6xl">
               <div className="bg-slate-800/60 backdrop-blur-md p-10 rounded-3xl text-center border border-slate-600/50 shadow-2xl">
-                  <div className="text-slate-400 mb-4 text-xl font-medium">总薪酬包</div>
+                  <div className="text-slate-400 mb-4 text-xl font-medium">总积分包</div>
                   <div className="text-7xl font-bold text-blue-50 font-mono tracking-tight">
                     ¥{Math.round(result.totalPool).toLocaleString()}
                   </div>
@@ -278,7 +278,7 @@ export const Simulation: React.FC = () => {
                   </div>
               </div>
               <div className="bg-slate-800/60 backdrop-blur-md p-10 rounded-3xl text-center border border-slate-600/50 shadow-2xl">
-                  <div className="text-slate-400 mb-4 text-xl font-medium">平均薪酬</div>
+                  <div className="text-slate-400 mb-4 text-xl font-medium">平均积分</div>
                   <div className="text-7xl font-bold text-amber-400 font-mono tracking-tight">
                     ¥{Math.round(result.totalPool / (result.records.length || 1)).toLocaleString()}
                   </div>
@@ -300,7 +300,7 @@ export const Simulation: React.FC = () => {
   const SlideLeaderboard = () => (
       <div className="h-full p-12 flex flex-col pt-24 animate-fade-in">
           <h2 className="text-5xl font-bold text-blue-200 mb-10 text-center flex items-center justify-center gap-4">
-              <TrendingUp className="text-red-400" size={48} /> 薪酬排行榜 TOP 10
+              <TrendingUp className="text-red-400" size={48} /> 积分排行榜 TOP 10
           </h2>
                     <div className="flex-1 w-full max-w-7xl mx-auto bg-slate-800/60 backdrop-blur-md rounded-3xl shadow-2xl p-10 border border-slate-600/50" style={{height: 600}}>
             <ResponsiveContainer width="100%" height={600}>
@@ -414,7 +414,7 @@ export const Simulation: React.FC = () => {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800">模拟沙箱</h1>
-                    <p className="text-slate-500">调整参数以预测薪酬变化，或启动车间展示模式。</p>
+                    <p className="text-slate-500">调整参数以预测积分变化，或启动车间展示模式。</p>
                 </div>
                 <div className="flex flex-wrap gap-3">
                     <button 
@@ -459,7 +459,7 @@ export const Simulation: React.FC = () => {
                     <h3 className="font-bold text-slate-700 mb-4">关键指标对比 (VS 原始数据)</h3>
                     <div className="space-y-8">
                         <div>
-                            <div className="text-sm text-slate-500 mb-1">总薪酬包</div>
+                            <div className="text-sm text-slate-500 mb-1">总积分包</div>
                             <div className="flex items-end gap-3">
                                 <span className="text-2xl font-bold text-slate-400 line-through">
                                     ¥{Math.round(originalResult.totalPool).toLocaleString()}
@@ -611,3 +611,4 @@ export const Simulation: React.FC = () => {
       </div>
   );
 };
+

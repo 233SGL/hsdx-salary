@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { DataProvider, useData } from './contexts/DataContext';
 import { Sidebar } from './components/Sidebar';
@@ -17,6 +17,7 @@ import { DataEntry as WeavingDataEntry } from './pages/weaving/DataEntry';
 import { WeavingCalculator } from './pages/weaving/Calculator';
 import { Configuration as WeavingConfiguration } from './pages/weaving/Configuration';
 import { Menu, Loader2, HardHat } from 'lucide-react';
+import { getDefaultRoute } from './utils/routeHelpers';
 
 const Layout = ({ children }: { children?: React.ReactNode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -42,19 +43,19 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
       <main className="flex-1 flex flex-col h-full overflow-hidden relative">
         {/* Mobile Header */}
         <div className="lg:hidden bg-white border-b border-slate-200 p-4 flex items-center justify-between z-10">
-          <span className="font-bold text-slate-800">薪酬管理系统</span>
+          <span className="font-bold text-slate-800">积分管理系统</span>
           <button
             type="button"
             onClick={() => setSidebarOpen(true)}
             className="text-slate-600"
             aria-label="打开导航菜单"
           >
-            <Menu size={24} aria-hidden="true" />
+            <Menu size={24} />
             <span className="sr-only">打开菜单</span>
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
+        <div className="flex-1 overflow-auto custom-scrollbar p-6">
           {children}
         </div>
       </main>
@@ -62,7 +63,20 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
   );
 };
 
+// Root redirect component based on permissions
+const RootRedirect = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
+  React.useEffect(() => {
+    if (user) {
+      const defaultRoute = getDefaultRoute(user.permissions);
+      navigate(defaultRoute, { replace: true });
+    }
+  }, [user, navigate]);
+
+  return <Navigate to="/login" replace />;
+};
 
 const App: React.FC = () => {
   return (
@@ -73,7 +87,9 @@ const App: React.FC = () => {
             <Route path="/login" element={<Login />} />
 
             {/* Styling Section Routes */}
-            <Route path="/" element={
+            <Route path="/" element={<RootRedirect />} />
+
+            <Route path="/dashboard" element={
               <Layout>
                 <Dashboard />
               </Layout>

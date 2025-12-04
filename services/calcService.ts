@@ -14,7 +14,7 @@ export const getWorkingDays = (year: number, month: number): number => {
   return workingDays;
 };
 
-export const calculateSalary = (data: MonthlyData): CalculationResult => {
+export const calculateSalary = (data: MonthlyData, employees: any[]): CalculationResult => {
   const { area, unitPrice, attendancePack, kpiScore, weightTime, weightBase } = data.params;
 
   // 1. Calculate Total Pool
@@ -28,8 +28,9 @@ export const calculateSalary = (data: MonthlyData): CalculationResult => {
   // 2. First Pass: Calculate Real Base and Sums (filter out terminated employees)
   const preCalcRecords = data.records
     .filter(record => {
-      // Skip if employeeId ends with '-terminated' or employeeName indicates terminated status
-      return !record.employeeId.includes('-terminated');
+      // Filter out terminated employees by checking their actual status in the employees list
+      const employee = employees.find(e => e.id === record.employeeId);
+      return employee && employee.status !== 'terminated';
     })
     .map(record => {
       const { workHours, expectedHours, baseScoreSnapshot } = record;

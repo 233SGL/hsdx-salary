@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Factory, ShieldAlert, TrendingUp, Award, Activity, Settings2 } from 'lucide-react';
@@ -43,7 +43,7 @@ export const ProductionData: React.FC = () => {
         <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
             <Factory className="text-blue-600" /> 生产数据录入
         </h1>
-        <p className="text-slate-500">核心参数配置：入库量、KPI指标与薪酬权重</p>
+        <p className="text-slate-500">核心参数配置：入库量、KPI指标与积分权重</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

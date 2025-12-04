@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Settings } from 'lucide-react';
 import { WeavingConfig, DEFAULT_WEAVING_CONFIG } from '../../weavingTypes';
 import { WeavingConfiguration } from '../../components/weaving/WeavingConfiguration';
@@ -30,10 +30,11 @@ export const Configuration = () => {
                         配置变更提示
                     </h3>
                     <p className="text-amber-800 text-sm">
-                        修改这些参数将影响薪酬计算结果。建议在月度结算前谨慎调整，确保所有参数符合当前考核方案。
+                        修改这些参数将影响积分计算结果。建议在月度结算前谨慎调整，确保所有参数符合当前考核方案。
                     </p>
                 </div>
             </div>
         </div>
     );
 };
+

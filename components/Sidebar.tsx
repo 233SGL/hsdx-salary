@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -44,8 +44,8 @@ export const Sidebar = ({ isOpen, toggle }: { isOpen: boolean; toggle: () => voi
         { icon: LayoutDashboard, label: '数据大盘', to: '/', visible: hasPermission('VIEW_DASHBOARD') },
         { icon: Factory, label: '生产录入', to: '/production-data', visible: hasPermission('VIEW_PRODUCTION') },
         { icon: CalendarDays, label: '每日工时', to: '/attendance', visible: hasPermission('VIEW_ATTENDANCE') },
-        { icon: Calculator, label: '薪酬计算', to: '/calculator', visible: hasPermission('VIEW_CALCULATOR') },
-        { icon: MonitorPlay, label: '薪酬模拟', to: '/simulation', visible: hasPermission('VIEW_SIMULATION') },
+        { icon: Calculator, label: '积分计算', to: '/calculator', visible: hasPermission('VIEW_CALCULATOR') },
+        { icon: MonitorPlay, label: '积分模拟', to: '/simulation', visible: hasPermission('VIEW_SIMULATION') },
         { icon: Megaphone, label: '工段公告', to: '/styling-settings', visible: hasPermission('MANAGE_ANNOUNCEMENTS') },
       ]
     },
@@ -57,7 +57,7 @@ export const Sidebar = ({ isOpen, toggle }: { isOpen: boolean; toggle: () => voi
       items: [
         { icon: LayoutDashboard, label: '工段总览', to: '/weaving', visible: true },
         { icon: Database, label: '数据录入', to: '/weaving/data-entry', visible: hasPermission('VIEW_WEAVING_DATA_ENTRY') },
-        { icon: Calculator, label: '薪酬计算', to: '/weaving/calculator', visible: hasPermission('VIEW_WEAVING_CALCULATOR') },
+        { icon: Calculator, label: '积分计算', to: '/weaving/calculator', visible: hasPermission('VIEW_WEAVING_CALCULATOR') },
         { icon: Settings, label: '工段配置', to: '/weaving/config', visible: hasPermission('VIEW_WEAVING_CONFIG') },
       ]
     },
@@ -96,7 +96,7 @@ export const Sidebar = ({ isOpen, toggle }: { isOpen: boolean; toggle: () => voi
             <div className="w-8 h-8 rounded bg-gradient-to-br from-accent to-blue-600 flex items-center justify-center font-bold text-white">
               H
             </div>
-            <span className="font-bold text-lg tracking-wide">薪酬管理系统</span>
+            <span className="font-bold text-lg tracking-wide">积分管理系统</span>
           </div>
           <button
             type="button"

@@ -2,7 +2,7 @@
 import { useData } from '../../contexts/DataContext';
 import { calculateSalary } from '../../services/calcService';
 import { MetricCard } from '../../components/MetricCard';
-import { Coins, Users, TrendingUp, Package } from 'lucide-react';
+import { Award, Users, TrendingUp, Package } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export const Dashboard: React.FC = () => {
@@ -27,28 +27,28 @@ export const Dashboard: React.FC = () => {
 
       {/* Metric Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <MetricCard 
-          label="本月总积分包" 
-          value={`${Math.round(result.totalPool).toLocaleString()}分`} 
-          icon={Coins} 
+        <MetricCard
+          label="总积分池"
+          value={Math.round(result.totalPool)}
+          icon={Award}
           color="indigo"
         />
-        <MetricCard 
-          label="实际产出修正积分" 
-          value={`${Math.round(result.bonusPool).toLocaleString()}分`} 
-          icon={TrendingUp} 
+        <MetricCard
+          label="实际产出修正积分"
+          value={`${Math.round(result.bonusPool).toLocaleString()}分`}
+          icon={TrendingUp}
           color="emerald"
         />
-        <MetricCard 
-          label="本月入库量" 
-          value={`${currentData.params.area.toLocaleString()} m²`} 
-          icon={Package} 
+        <MetricCard
+          label="本月入库量"
+          value={`${currentData.params.area.toLocaleString()} m²`}
+          icon={Package}
           color="blue"
         />
-        <MetricCard 
-          label="在册员工" 
-          value={result.records.length} 
-          icon={Users} 
+        <MetricCard
+          label="在册员工"
+          value={result.records.length}
+          icon={Users}
           color="amber"
         />
       </div>
@@ -65,8 +65,8 @@ export const Dashboard: React.FC = () => {
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
               <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
               <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}分`} />
-              <Tooltip 
-                cursor={{fill: '#f1f5f9'}}
+              <Tooltip
+                cursor={{ fill: '#f1f5f9' }}
                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                 formatter={(val: number) => [`${val}分`, '']}
                 animationDuration={0}
@@ -79,60 +79,60 @@ export const Dashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-         {/* Stats Panel 1 */}
-         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-800 mb-4">考核指标详情</h3>
-            <div className="space-y-4">
-                <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                    <span className="text-slate-500">固定积分包</span>
-                    <span className="font-semibold">{currentData.params.attendancePack}</span>
-                </div>
-                <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                    <span className="text-slate-500">KPI 考核分</span>
-                    <span className="font-semibold">{currentData.params.kpiScore}</span>
-                </div>
-                <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                    <span className="text-slate-500">基础分支出占比</span>
-                    <span className="font-semibold text-slate-700">
-                        {result.totalPool > 0 ? ((result.totalBasePayout / result.totalPool) * 100).toFixed(1) : 0}%
-                    </span>
-                </div>
-                <div className="flex justify-between items-center pb-2">
-                    <span className="text-slate-500">修正积分池占比</span>
-                    <span className="font-bold text-accent">
-                        {result.totalPool > 0 ? ((result.bonusPool / result.totalPool) * 100).toFixed(1) : 0}%
-                    </span>
-                </div>
+        {/* Stats Panel 1 */}
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+          <h3 className="text-lg font-bold text-slate-800 mb-4">考核指标详情</h3>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+              <span className="text-slate-500">固定积分包</span>
+              <span className="font-semibold">{currentData.params.attendancePack}</span>
             </div>
-         </div>
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+              <span className="text-slate-500">KPI 考核分</span>
+              <span className="font-semibold">{currentData.params.kpiScore}</span>
+            </div>
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+              <span className="text-slate-500">基础分支出占比</span>
+              <span className="font-semibold text-slate-700">
+                {result.totalPool > 0 ? ((result.totalBasePayout / result.totalPool) * 100).toFixed(1) : 0}%
+              </span>
+            </div>
+            <div className="flex justify-between items-center pb-2">
+              <span className="text-slate-500">修正积分池占比</span>
+              <span className="font-bold text-accent">
+                {result.totalPool > 0 ? ((result.bonusPool / result.totalPool) * 100).toFixed(1) : 0}%
+              </span>
+            </div>
+          </div>
+        </div>
 
-         {/* Stats Panel 2 */}
-         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-             <h3 className="text-lg font-bold text-slate-800 mb-4">权重设置现状</h3>
-             <div className="flex items-center gap-8 h-40">
-                <div className="flex-1 space-y-2">
-                    <div className="flex justify-between text-sm font-medium">
-                        <span className="text-amber-600">工时权重</span>
-                        <span>{currentData.params.weightTime}%</span>
-                    </div>
-                    <div className="w-full bg-slate-100 rounded-full h-3">
-                        <div className="bg-amber-500 h-3 rounded-full" style={{ width: `${currentData.params.weightTime}%` }}></div>
-                    </div>
-                </div>
-                <div className="flex-1 space-y-2">
-                    <div className="flex justify-between text-sm font-medium">
-                        <span className="text-purple-600">基础分权重</span>
-                        <span>{currentData.params.weightBase}%</span>
-                    </div>
-                    <div className="w-full bg-slate-100 rounded-full h-3">
-                        <div className="bg-purple-500 h-3 rounded-full" style={{ width: `${currentData.params.weightBase}%` }}></div>
-                    </div>
-                </div>
-             </div>
-             <p className="text-xs text-slate-400 mt-2">
-                * 权重决定了修正积分池分配的倾向性。工时权重高倾向于“多劳多得”，基础分权重高倾向于“技能/资历”。
-             </p>
-         </div>
+        {/* Stats Panel 2 */}
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+          <h3 className="text-lg font-bold text-slate-800 mb-4">权重设置现状</h3>
+          <div className="flex items-center gap-8 h-40">
+            <div className="flex-1 space-y-2">
+              <div className="flex justify-between text-sm font-medium">
+                <span className="text-amber-600">工时权重</span>
+                <span>{currentData.params.weightTime}%</span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-3">
+                <div className="bg-amber-500 h-3 rounded-full" style={{ width: `${currentData.params.weightTime}%` }}></div>
+              </div>
+            </div>
+            <div className="flex-1 space-y-2">
+              <div className="flex justify-between text-sm font-medium">
+                <span className="text-purple-600">基础分权重</span>
+                <span>{currentData.params.weightBase}%</span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-3">
+                <div className="bg-purple-500 h-3 rounded-full" style={{ width: `${currentData.params.weightBase}%` }}></div>
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-slate-400 mt-2">
+            * 权重决定了修正积分池分配的倾向性。工时权重高倾向于“多劳多得”，基础分权重高倾向于“技能/资历”。
+          </p>
+        </div>
       </div>
     </div>
   );

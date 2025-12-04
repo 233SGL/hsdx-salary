@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Calculator } from 'lucide-react';
 import { WeavingConfig, WeavingMonthlyData, WeavingCalculationResult, DEFAULT_WEAVING_CONFIG } from '../../weavingTypes';
 import { WeavingResults } from '../../components/weaving/WeavingResults';
@@ -82,10 +82,10 @@ export const WeavingCalculator = () => {
             <div className="mb-6">
                 <h1 className="text-3xl font-bold text-slate-900 mb-2 flex items-center gap-3">
                     <Calculator className="text-green-600" size={32} />
-                    织造工段 - 薪酬计算
+                    织造工段 - 积分计算
                 </h1>
                 <p className="text-slate-600">
-                    查看当月薪酬计算结果和明细
+                    查看当月积分计算结果和明细
                 </p>
             </div>
 
@@ -95,3 +95,4 @@ export const WeavingCalculator = () => {
         </div>
     );
 };
+
