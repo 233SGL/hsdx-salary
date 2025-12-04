@@ -1,59 +1,128 @@
+/**
+ * ========================================
+ * 鹤山积分管理系统 - 数据上下文
+ * ========================================
+ * 
+ * 本模块提供全局数据管理功能：
+ * - 员工数据管理 (CRUD)
+ * - 月度数据管理
+ * - 考勤记录管理
+ * - 系统用户管理
+ * - 工段和部门管理
+ * - 全局设置管理
+ * 
+ * 这是应用的核心数据层，所有页面都通过
+ * useData() Hook 访问这些数据和方法
+ * 
+ * @module contexts/DataContext
+ */
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { MonthlyData, Employee, SalaryRecord, SystemUser, GlobalSettings, Workshop } from '../types';
 import { db } from '../services/db';
 import { getWorkingDays } from '../services/calcService';
 
+/**
+ * 数据上下文类型定义
+ * 定义所有可通过 useData() 访问的属性和方法
+ */
 interface DataContextType {
+  // ========== 日期管理 ==========
+  /** 当前选中的年月 */
   currentDate: { year: number; month: number };
+  /** 设置当前年月 */
   setCurrentDate: (date: { year: number; month: number }) => void;
+  
+  // ========== 核心数据 ==========
+  /** 当前月度数据（包含参数和员工记录） */
   currentData: MonthlyData;
+  /** 员工列表 */
   employees: Employee[];
+  /** 工段/车间列表 */
   workshops: Workshop[];
+  /** 系统用户列表 */
   systemUsers: SystemUser[];
+  /** 全局设置 */
   settings: GlobalSettings;
+  
+  // ========== 状态标志 ==========
+  /** 是否正在加载数据 */
   isLoading: boolean;
+  /** 是否正在保存数据 */
   isSaving: boolean;
+  
+  // ========== 月度数据操作 ==========
+  /** 更新月度参数 */
   updateParams: (params: Partial<MonthlyData['params']>) => void;
+  /** 更新员工记录 */
   updateRecord: (employeeId: string, changes: Partial<SalaryRecord>) => void;
+  /** 更新某天的工时记录 */
   updateDailyLog: (employeeId: string, day: number, hours: number) => void;
+  /** 清空所有考勤记录 */
   clearAllAttendance: () => Promise<void>;
+  /** 自动填充考勤（按预期工时） */
   autoFillAttendance: () => Promise<void>;
 
-  // Employee
+  // ========== 员工管理 ==========
+  /** 添加员工 */
   addEmployee: (emp: Omit<Employee, 'id'>) => Promise<void>;
+  /** 更新员工信息 */
   updateEmployee: (emp: Employee) => Promise<void>;
+  /** 删除员工（硬删除） */
   deleteEmployee: (id: string) => Promise<void>;
+  /** 移除员工（软删除，标记为离职） */
   removeEmployee: (id: string) => Promise<void>;
+  /** 重置当月数据 */
   resetMonthData: () => Promise<void>;
 
-  // Workshops
+  // ========== 工段管理 ==========
+  /** 添加部门到工段 */
   addWorkshopFolder: (workshopId: string, folderName: string) => Promise<void>;
+  /** 添加新工段 */
   addWorkshop: (name: string, code: string) => Promise<void>;
+  /** 删除工段 */
   deleteWorkshop: (id: string) => Promise<void>;
+  /** 删除工段下的部门 */
   deleteWorkshopFolder: (workshopId: string, folderName: string) => Promise<void>;
 
-  // User Management
+  // ========== 系统用户管理 ==========
+  /** 添加系统用户 */
   addSystemUser: (user: Omit<SystemUser, 'id'>) => Promise<void>;
+  /** 更新系统用户 */
   updateSystemUser: (user: SystemUser) => Promise<void>;
+  /** 删除系统用户 */
   deleteSystemUser: (id: string) => Promise<void>;
 
-  // Settings
+  // ========== 设置管理 ==========
+  /** 更新全局设置 */
   updateSettings: (settings: Partial<GlobalSettings>) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
+/**
+ * 生成唯一ID
+ * 使用随机数生成 9 位字符的 ID
+ */
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
+/**
+ * 默认月度参数
+ * 创建新月度数据时使用的初始值
+ */
 const DEFAULT_PARAMS = {
-  area: 18000,
-  unitPrice: 2.5,
-  attendancePack: 20000,
-  kpiScore: 2500,
-  weightTime: 50,
-  weightBase: 50
+  area: 18000,         // 产量面积（平方米）
+  unitPrice: 2.5,      // 单价（积分/平方米）
+  attendancePack: 20000, // 考勤包（固定积分）
+  kpiScore: 2500,      // KPI分
+  weightTime: 50,      // 工时权重（%）
+  weightBase: 50       // 基础分权重（%）
 };
+
+/**
+ * 数据上下文提供者组件
+ * 包裹应用根组件，提供全局数据和操作方法
+ */
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const today = new Date();
@@ -68,7 +137,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  // 1. Initial Load
+  // ========================================
+  // 1. 初始加载基础数据
+  // 应用启动时加载员工、用户、设置、工段信息
+  // ========================================
   useEffect(() => {
     const loadBasics = async () => {
       try {
@@ -82,13 +154,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setSettings(sets);
         setWorkshops(ws);
       } catch (err) {
-        console.error("Failed to load basic data:", err);
+        console.error("加载基础数据失败:", err);
       }
     };
     loadBasics();
   }, []);
 
-  // 2. Load Monthly Data
+  // ========================================
+  // 2. 加载月度数据
+  // 当年月变化或员工数据更新时重新加载
+  // ========================================
   useEffect(() => {
     let isMounted = true;
     const loadMonth = async () => {

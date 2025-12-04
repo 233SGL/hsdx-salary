@@ -1,22 +1,53 @@
+/**
+ * ========================================
+ * 鹤山积分管理系统 - 后端服务器
+ * ========================================
+ * 
+ * 本模块提供 RESTful API 服务：
+ * - 员工管理 API (CRUD)
+ * - 系统用户管理 API
+ * - 工段/车间管理 API
+ * - 月度数据管理 API
+ * - 系统设置 API
+ * 
+ * 数据库: Supabase PostgreSQL (通过 Session Pooler 连接)
+ * 
+ * @module server
+ * @version 2.5
+ */
+
 import express from 'express';
 import pg from 'pg';
 import cors from 'cors';
 import dotenv from 'dotenv';
 
+// 加载环境变量配置
 dotenv.config({ path: '.env.server' });
 
 const { Pool } = pg;
 const app = express();
-app.use(cors());
-app.use(express.json());
 
-// Session Pooler connection
+// 中间件配置
+app.use(cors());        // 允许跨域请求
+app.use(express.json()); // 解析 JSON 请求体
+
+/**
+ * 数据库连接池配置
+ * 使用 Supabase Session Pooler 连接
+ */
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
-// Health check
+// ========================================
+// 健康检查 API
+// ========================================
+
+/**
+ * GET /api/health
+ * 检查数据库连接状态
+ */
 app.get('/api/health', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT 1 as ok');
@@ -26,7 +57,14 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// Employees
+// ========================================
+// 员工管理 API
+// ========================================
+
+/**
+ * GET /api/employees
+ * 获取所有员工列表
+ */
 app.get('/api/employees', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM employees ORDER BY id');
@@ -36,6 +74,11 @@ app.get('/api/employees', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/employees
+ * 创建新员工
+ * @body {id, name, gender, workshopId, department, position, joinDate, standardBaseScore, status, phone, expectedDailyHours}
+ */
 app.post('/api/employees', async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -69,7 +112,14 @@ app.delete('/api/employees/:id', async (req, res) => {
   }
 });
 
-// Workshops
+// ========================================
+// 工段/车间管理 API
+// ========================================
+
+/**
+ * GET /api/workshops
+ * 获取所有工段/车间列表
+ */
 app.get('/api/workshops', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM workshops ORDER BY id');
@@ -79,7 +129,14 @@ app.get('/api/workshops', async (req, res) => {
   }
 });
 
-// Settings
+// ========================================
+// 系统设置 API
+// ========================================
+
+/**
+ * GET /api/settings
+ * 获取全局设置（如公告内容）
+ */
 app.get('/api/settings', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM settings WHERE id = $1', ['global']);
@@ -101,7 +158,14 @@ app.put('/api/settings', async (req, res) => {
   }
 });
 
-// System Users
+// ========================================
+// 系统用户管理 API
+// ========================================
+
+/**
+ * GET /api/users
+ * 获取所有系统用户列表
+ */
 app.get('/api/users', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM system_users ORDER BY id');
@@ -201,7 +265,14 @@ app.delete('/api/users/:id', async (req, res) => {
   }
 });
 
-// Monthly Data
+// ========================================
+// 月度数据 API
+// ========================================
+
+/**
+ * GET /api/monthly-data/:year/:month
+ * 获取指定年月的月度数据
+ */
 app.get('/api/monthly-data/:year/:month', async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -226,8 +297,14 @@ app.post('/api/monthly-data', async (req, res) => {
   }
 });
 
+// ========================================
+// 启动服务器
+// ========================================
+
+/** 服务器端口，默认 3000 */
 const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, () => {
-  console.log(`Backend server running on http://localhost:${PORT}`);
-  console.log(`API endpoints available at http://localhost:${PORT}/api/*`);
+  console.log(`后端服务器已启动: http://localhost:${PORT}`);
+  console.log(`API 端点地址: http://localhost:${PORT}/api/*`);
 });

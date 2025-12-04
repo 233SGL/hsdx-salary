@@ -1,3 +1,29 @@
+/**
+ * ========================================
+ * 鹤山积分管理系统 - 应用主组件
+ * ========================================
+ * 
+ * 本文件是应用的入口组件，负责：
+ * - 路由配置（HashRouter）
+ * - 全局布局（Layout）
+ * - 上下文提供者嵌套（Auth + Data）
+ * - 权限路由重定向
+ * 
+ * 路由结构：
+ * - /login: 登录页
+ * - /dashboard: 定型工段数据大盘
+ * - /production-data: 定型工段生产数据录入
+ * - /attendance: 定型工段每日工时
+ * - /calculator: 定型工段积分计算
+ * - /simulation: 定型工段模拟沙箱
+ * - /styling-settings: 定型工段设置
+ * - /weaving/*: 织造工段相关页面
+ * - /employees: 员工档案管理
+ * - /settings: 系统设置
+ * 
+ * @module App
+ */
+
 import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -19,13 +45,21 @@ import { Configuration as WeavingConfiguration } from './pages/weaving/Configura
 import { Menu, Loader2, HardHat } from 'lucide-react';
 import { getDefaultRoute } from './utils/routeHelpers';
 
+/**
+ * 主布局组件
+ * 包含侧边栏和主内容区域，处理移动端响应式布局
+ * 
+ * @param children - 子组件（页面内容）
+ */
 const Layout = ({ children }: { children?: React.ReactNode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user } = useAuth();
   const { isLoading } = useData();
 
+  // 未登录用户重定向到登录页
   if (!user) return <Navigate to="/login" replace />;
 
+  // 数据加载中显示加载动画
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50 text-slate-500">
@@ -63,7 +97,10 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
   );
 };
 
-// Root redirect component based on permissions
+/**
+ * 根路由重定向组件
+ * 根据用户权限判断并重定向到默认页面
+ */
 const RootRedirect = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -78,6 +115,10 @@ const RootRedirect = () => {
   return <Navigate to="/login" replace />;
 };
 
+/**
+ * 应用根组件
+ * 配置全局上下文和路由
+ */
 const App: React.FC = () => {
   return (
     <AuthProvider>

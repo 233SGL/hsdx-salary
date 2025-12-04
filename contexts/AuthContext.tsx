@@ -1,29 +1,62 @@
+/**
+ * ========================================
+ * 鹤山积分管理系统 - 认证上下文
+ * ========================================
+ * 
+ * 本模块提供用户认证和权限管理功能：
+ * - 用户登录/登出
+ * - 角色管理
+ * - 权限检查（新旧两套系统）
+ * - 工段范围控制
+ * 
+ * 注意：从 v1.1 起，登录状态不再持久化，
+ * 刷新页面后需要重新登录（会话级）
+ * 
+ * @module contexts/AuthContext
+ */
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { UserRole, Permission, SystemUser, PageType, EditPermission, WorkshopScope } from '../types';
 import { convertOldPermissionsToNew, pageExistsInWorkshop } from '../utils/permissionHelpers';
 
+/**
+ * 认证上下文类型定义
+ * 定义所有可通过 useAuth() 访问的属性和方法
+ */
 interface AuthContextType {
+  /** 当前用户角色 */
   role: UserRole;
+  /** 设置角色（已弃用，保留接口兼容） */
   setRole: (role: UserRole) => void;
+  /** 当前登录用户信息 */
   user: { name: string; avatar: string; permissions: Permission[]; role?: UserRole; scopes: string[]; newPermissions?: any } | null;
+  /** 登出函数 */
   logout: () => void;
 
   // 旧权限检查（保留兼容）
+  /** 检查是否有指定权限（旧系统） */
   hasPermission: (perm: Permission) => boolean;
+  /** 检查是否有指定工段范围 */
   hasScope: (scope: string) => boolean;
 
   // 新权限检查
+  /** 检查是否可查看指定页面 */
   canViewPage: (page: PageType, workshop?: WorkshopScope) => boolean;
+  /** 检查是否有指定编辑权限 */
   canEdit: (permission: EditPermission) => boolean;
+  /** 获取用户可访问的工段列表 */
   getAvailableScopes: () => WorkshopScope[];
 
+  /** 登录函数 */
   login: (user: SystemUser) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Role metadata for UI
+/**
+ * 角色显示名称映射
+ * 用于 UI 中显示可读的角色名称
+ */
 export const ROLE_LABELS: Record<UserRole, string> = {
   [UserRole.ADMIN]: '行政 (系统管理)',
   [UserRole.VP_PRODUCTION]: '生产副总 (定薪/KPI)',
@@ -32,6 +65,11 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   [UserRole.GENERAL_MANAGER]: '总经理 (审批/查看)',
   [UserRole.GUEST]: '访客'
 };
+
+/**
+ * 认证上下文提供者组件
+ * 包裹应用根组件，提供认证状态和方法
+ */
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // Always start as GUEST - require login on every app load

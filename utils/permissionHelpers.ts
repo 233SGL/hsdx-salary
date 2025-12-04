@@ -1,7 +1,26 @@
-// 权限转换工具：旧权限 → 新权限
+/**
+ * ========================================
+ * 鹤山积分管理系统 - 权限转换工具
+ * ========================================
+ * 
+ * 本模块提供旧权限系统到新权限系统的转换功能：
+ * - 旧系统：细粒度权限列表（如 VIEW_DASHBOARD）
+ * - 新系统：三维权限模型（工段+页面+编辑权限）
+ * 
+ * 这个转换层保证了系统向后兼容
+ * 
+ * @module utils/permissionHelpers
+ */
+
 import { Permission, PageType, EditPermission, WorkshopScope } from './types';
 
-// 旧权限到新权限的映射
+/**
+ * 将旧权限列表转换为新权限结构
+ * 
+ * @param oldPermissions - 旧的权限列表（如 ['VIEW_DASHBOARD', 'EDIT_YIELD']）
+ * @param scopes - 工段范围列表（如 ['styling', 'weaving']）
+ * @returns 新权限结构，包含 pages 和 edits 两个数组
+ */
 export function convertOldPermissionsToNew(oldPermissions: Permission[], scopes: string[]): {
     pages: PageType[];
     edits: EditPermission[];
@@ -9,7 +28,10 @@ export function convertOldPermissionsToNew(oldPermissions: Permission[], scopes:
     const pages = new Set<PageType>();
     const edits = new Set<EditPermission>();
 
-    // 页面访问权限映射
+    /**
+     * 页面访问权限映射表
+     * 将旧的 VIEW_* 权限映射到新的 PageType
+     */
     const pageMapping: Record<string, PageType> = {
         'VIEW_DASHBOARD': 'dashboard',
         'VIEW_PRODUCTION': 'production',
@@ -25,7 +47,10 @@ export function convertOldPermissionsToNew(oldPermissions: Permission[], scopes:
         'VIEW_WEAVING_CONFIG': 'config',
     };
 
-    // 编辑权限映射
+    /**
+     * 编辑权限映射表
+     * 将旧的 EDIT_*/MANAGE_* 权限映射到新的 EditPermission
+     */
     const editMapping: Record<string, EditPermission> = {
         'EDIT_YIELD': '编辑_production_data',
         'EDIT_UNIT_PRICE': 'edit_production_data',
@@ -58,7 +83,14 @@ export function convertOldPermissionsToNew(oldPermissions: Permission[], scopes:
     };
 }
 
-// 页面类型到路由路径的映射
+/**
+ * 根据页面类型和工段获取对应的路由路径
+ * 不同工段的同类型页面可能有不同的路由
+ * 
+ * @param page - 页面类型
+ * @param workshop - 工段范围
+ * @returns 路由路径，如果该页面在指定工段不存在则返回 null
+ */
 export function getPageRoute(page: PageType, workshop: WorkshopScope): string | null {
     const routeMapping: Record<PageType, Record<WorkshopScope, string | null>> = {
         'dashboard': {
@@ -111,7 +143,15 @@ export function getPageRoute(page: PageType, workshop: WorkshopScope): string | 
     return routeMapping[page]?.[workshop] || null;
 }
 
-// 检查页面是否存在于特定工段
+/**
+ * 检查页面是否存在于特定工段
+ * 某些页面只在特定工段中存在，如：
+ * - 考勤页、模拟沙箱、公告管理仅在定型工段
+ * 
+ * @param page - 页面类型
+ * @param workshop - 工段范围
+ * @returns 页面是否存在于该工段
+ */
 export function pageExistsInWorkshop(page: PageType, workshop: WorkshopScope): boolean {
     if (workshop === 'all') return true;
 
