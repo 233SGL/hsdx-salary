@@ -25,24 +25,29 @@ export const calculateSalary = (data: MonthlyData): CalculationResult => {
   let sumStandardBase = 0;
   let sumRealBase = 0;
 
-  // 2. First Pass: Calculate Real Base and Sums
-  const preCalcRecords = data.records.map(record => {
-    const { workHours, expectedHours, baseScoreSnapshot } = record;
-    
-    // Safety check for divide by zero
-    const attendanceRatio = expectedHours > 0 ? workHours / expectedHours : 0;
-    const realBase = baseScoreSnapshot * attendanceRatio;
+  // 2. First Pass: Calculate Real Base and Sums (filter out terminated employees)
+  const preCalcRecords = data.records
+    .filter(record => {
+      // Skip if employeeId ends with '-terminated' or employeeName indicates terminated status
+      return !record.employeeId.includes('-terminated');
+    })
+    .map(record => {
+      const { workHours, expectedHours, baseScoreSnapshot } = record;
 
-    sumWorkHours += workHours;
-    sumExpectedHours += expectedHours;
-    sumStandardBase += baseScoreSnapshot;
-    sumRealBase += realBase;
+      // Safety check for divide by zero
+      const attendanceRatio = expectedHours > 0 ? workHours / expectedHours : 0;
+      const realBase = baseScoreSnapshot * attendanceRatio;
 
-    return {
-      ...record,
-      realBase,
-    };
-  });
+      sumWorkHours += workHours;
+      sumExpectedHours += expectedHours;
+      sumStandardBase += baseScoreSnapshot;
+      sumRealBase += realBase;
+
+      return {
+        ...record,
+        realBase,
+      };
+    });
 
   // 3. Calculate Bonus Pool
   const bonusPool = Math.max(0, totalPool - sumRealBase);
@@ -54,7 +59,7 @@ export const calculateSalary = (data: MonthlyData): CalculationResult => {
   const finalRecords = preCalcRecords.map(record => {
     // Work Ratio: My Work / Total Work
     const workRatio = sumWorkHours > 0 ? record.workHours / sumWorkHours : 0;
-    
+
     // Base Ratio: My Real Base / Total Real Base
     const baseRatio = sumRealBase > 0 ? record.realBase / sumRealBase : 0;
 
