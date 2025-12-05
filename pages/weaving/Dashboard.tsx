@@ -76,7 +76,7 @@ export const WeavingDashboard = () => {
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col animate-fade-in-up">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-800 mb-2 flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-gradient-to-br from-primary-100 to-primary-50 text-primary-600 shadow-sm">

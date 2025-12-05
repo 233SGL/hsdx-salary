@@ -213,7 +213,7 @@ export const Settings: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-fade-in pb-12">
+    <div className="max-w-4xl mx-auto space-y-8 animate-fade-in-up pb-12">
       <div>
         <h1 className="text-2xl font-bold text-slate-800">系统全局设置</h1>
         <p className="text-slate-500">管理全局用户权限与数据库维护</p>
