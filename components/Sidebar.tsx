@@ -86,17 +86,17 @@ export const Sidebar = ({ isOpen, toggle }: { isOpen: boolean; toggle: () => voi
       {/* Sidebar */}
       <aside
         className={`
-          fixed top-0 left-0 z-30 h-full w-64 bg-gradient-to-b from-slate-900 to-slate-950 text-slate-100 transition-transform duration-300 ease-in-out
+          fixed top-0 left-0 z-30 h-full w-64 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 text-slate-100 transition-transform duration-300 ease-in-out
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-          lg:translate-x-0 lg:static flex flex-col shadow-xl
+          lg:translate-x-0 lg:static flex flex-col shadow-2xl
         `}
       >
-        <div className="p-6 border-b border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded bg-gradient-to-br from-accent to-blue-600 flex items-center justify-center font-bold text-white">
+        <div className="p-5 border-b border-slate-800/60 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center font-bold text-white shadow-lg shadow-primary-500/30">
               H
             </div>
-            <span className="font-bold text-lg tracking-wide">积分管理系统</span>
+            <span className="font-bold text-lg tracking-wide bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">积分管理系统</span>
           </div>
           <button
             type="button"
@@ -109,15 +109,15 @@ export const Sidebar = ({ isOpen, toggle }: { isOpen: boolean; toggle: () => voi
           </button>
         </div>
 
-        <div className="p-4 border-b border-slate-800/50 bg-slate-900/20">
-          <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-800/30 transition-colors cursor-pointer group">
+        <div className="p-4 border-b border-slate-800/40">
+          <div className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-800/40 hover:bg-slate-800/60 transition-all duration-200 cursor-pointer group">
             <div className="relative">
-              <img src={user?.avatar} alt="User" className="w-10 h-10 rounded-full border-2 border-slate-700 group-hover:border-accent/50 transition-colors" />
-              <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full"></span>
+              <img src={user?.avatar} alt="User" className="w-11 h-11 rounded-xl border-2 border-slate-700/50 group-hover:border-primary-500/50 transition-colors shadow-lg" />
+              <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-slate-900 rounded-full ring-2 ring-emerald-500/20"></span>
             </div>
-            <div className="overflow-hidden">
-              <p className="font-medium text-sm truncate group-hover:text-white transition-colors">{user?.name}</p>
-              <p className="text-xs text-slate-400 truncate">{role}</p>
+            <div className="overflow-hidden flex-1">
+              <p className="font-semibold text-sm truncate group-hover:text-white transition-colors">{user?.name}</p>
+              <p className="text-xs text-slate-400 truncate font-medium">{role}</p>
             </div>
           </div>
         </div>
@@ -133,30 +133,32 @@ export const Sidebar = ({ isOpen, toggle }: { isOpen: boolean; toggle: () => voi
               <div key={section.id} className="mb-2">
                 <button
                   onClick={() => toggleSection(section.id)}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors text-sm font-bold uppercase tracking-wider ${isExpanded ? 'text-slate-400' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 text-sm font-bold uppercase tracking-wider ${isExpanded ? 'text-slate-300 bg-slate-800/30' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/20'}`}
                 >
-                  <div className="flex items-center gap-2">
-                    <section.icon size={16} />
+                  <div className="flex items-center gap-2.5">
+                    <section.icon size={16} className={isExpanded ? 'text-primary-400' : ''} />
                     <span>{section.title}</span>
                   </div>
-                  {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
+                    <ChevronDown size={14} />
+                  </div>
                 </button>
 
                 {isExpanded && (
-                  <div className="mt-1 space-y-1 ml-2 pl-2 border-l border-slate-800 animate-fade-in">
+                  <div className="mt-1.5 space-y-0.5 ml-3 pl-3 border-l-2 border-slate-700/50 animate-fade-in-up">
                     {visibleItems.map((item) => (
                       <NavLink
                         key={item.to}
                         to={item.to}
                         onClick={() => window.innerWidth < 1024 && toggle()}
                         className={({ isActive }) => `
-                          flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm relative overflow-hidden
+                          flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm relative overflow-hidden
                           ${isActive
-                            ? 'bg-accent text-white shadow-lg shadow-accent/25 font-medium translate-x-1'
-                            : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 hover:translate-x-0.5'}
+                            ? 'bg-gradient-to-r from-primary-600 to-primary-500 text-white shadow-lg shadow-primary-500/30 font-medium'
+                            : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}
                         `}
                       >
-                        <item.icon size={18} />
+                        <item.icon size={17} />
                         <span>{item.label}</span>
                       </NavLink>
                     ))}
@@ -168,33 +170,33 @@ export const Sidebar = ({ isOpen, toggle }: { isOpen: boolean; toggle: () => voi
         </nav>
 
         {/* Database Status Indicator */}
-        <div className="px-4 py-4 space-y-2 bg-slate-900/50">
-          <div className="flex items-center gap-2 px-3 py-2 bg-slate-800/50 rounded text-xs text-emerald-400 border border-slate-800">
-            <Database size={12} />
-            <div className="flex items-center gap-1.5">
+        <div className="px-4 py-4 space-y-2">
+          <div className="flex items-center gap-2 px-3 py-2.5 bg-slate-800/40 rounded-xl text-xs text-emerald-400 border border-slate-700/50">
+            <Database size={14} />
+            <div className="flex items-center gap-2">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span>数据库已连接</span>
+              <span className="font-medium">数据库已连接</span>
             </div>
           </div>
 
           {isSaving && (
-            <div className="flex items-center gap-2 px-3 py-1 text-xs text-blue-400 animate-pulse">
-              <span className="w-2 h-2 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></span>
+            <div className="flex items-center gap-2 px-3 py-2 text-xs text-primary-400 bg-primary-500/10 rounded-lg">
+              <span className="w-3 h-3 border-2 border-primary-400 border-t-transparent rounded-full animate-spin"></span>
               正在保存数据...
             </div>
           )}
         </div>
 
-        <div className="p-4 border-t border-slate-800">
+        <div className="p-4 border-t border-slate-800/60">
           <button
             onClick={logout}
-            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-rose-400 hover:bg-slate-800 transition-colors"
+            className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-all duration-200 group"
           >
-            <LogOut size={20} />
-            <span className="font-medium">退出登录</span>
+            <LogOut size={20} className="group-hover:translate-x-0.5 transition-transform" />
+            <span className="font-semibold">退出登录</span>
           </button>
         </div>
       </aside>

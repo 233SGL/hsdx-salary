@@ -80,11 +80,13 @@ export const WeavingCalculator = () => {
     return (
         <div className="h-full flex flex-col">
             <div className="mb-6">
-                <h1 className="text-3xl font-bold text-slate-900 mb-2 flex items-center gap-3">
-                    <Calculator className="text-green-600" size={32} />
+                <h1 className="text-2xl font-bold text-slate-800 mb-2 flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-50 text-emerald-600 shadow-sm">
+                        <Calculator size={24} />
+                    </div>
                     织造工段 - 积分计算
                 </h1>
-                <p className="text-slate-600">
+                <p className="text-slate-500 text-sm">
                     查看当月积分计算结果和明细
                 </p>
             </div>

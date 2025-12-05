@@ -403,7 +403,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsSaving(false);
   };
 
+  // 系统核心工段，禁止删除（与路由硬绑定）
+  const PROTECTED_WORKSHOP_CODES = ['styling', 'weaving'];
+
   const addWorkshop = async (name: string, code: string) => {
+    // 注意：新增工段不会自动配置路由，功能会受限
     const newWs: Workshop = { id: generateId(), name, code, departments: [] };
     const newWorkshops = [...workshops, newWs];
     setWorkshops(newWorkshops);
@@ -413,6 +417,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const deleteWorkshop = async (id: string) => {
+    // 保护核心工段不被删除
+    const targetWs = workshops.find(w => w.id === id);
+    if (targetWs && PROTECTED_WORKSHOP_CODES.includes(targetWs.code)) {
+      console.error(`[DataContext] 尝试删除核心工段被阻止: ${targetWs.name} (${targetWs.code})`);
+      return; // 静默阻止，前端已有提示
+    }
+    
     const newWorkshops = workshops.filter(w => w.id !== id);
     setWorkshops(newWorkshops);
     setIsSaving(true);

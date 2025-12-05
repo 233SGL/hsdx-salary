@@ -38,20 +38,23 @@ export const ProductionData: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
+    <div className="max-w-4xl mx-auto space-y-8 animate-fade-in-up">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Factory className="text-blue-600" /> 生产数据录入
+        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-primary-100 text-primary-600">
+                <Factory size={22} />
+            </div>
+            生产数据录入
         </h1>
-        <p className="text-slate-500">核心参数配置：入库量、KPI指标与积分权重</p>
+        <p className="text-slate-500 mt-1 text-sm">核心参数配置：入库量、KPI指标与积分权重</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Yield Section */}
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+        <div className="card card-hover">
             <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
-                <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
-                    <TrendingUp size={24} />
+                <div className="p-2.5 bg-gradient-to-br from-primary-100 to-primary-50 text-primary-600 rounded-xl shadow-sm">
+                    <TrendingUp size={22} />
                 </div>
                 <div>
                     <h3 className="text-lg font-bold text-slate-800">产量与入库</h3>
@@ -60,26 +63,26 @@ export const ProductionData: React.FC = () => {
             </div>
             <div className="space-y-4">
                 <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">本月入库量 (m²)</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">本月入库量 (m²)</label>
                     <input 
                         type="number" 
                         disabled={!canEditYield}
                         value={currentData.params.area}
                         onChange={e => updateParams({ area: parseFloat(e.target.value) || 0 })}
-                        className="w-full text-2xl font-mono border border-slate-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-slate-50 disabled:text-slate-400"
+                        className="input text-2xl font-mono tabular-nums py-3 disabled:bg-slate-50 disabled:text-slate-400"
                     />
                 </div>
-                <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-700">
+                <div className="bg-primary-50 p-4 rounded-xl text-sm text-primary-700 border border-primary-100">
                     <span className="font-bold">提示：</span> 入库量直接决定总积分包大小，请核对后录入。
                 </div>
             </div>
         </div>
 
         {/* Financial Section */}
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+        <div className="card card-hover">
             <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
-                    <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg">
-                    <Award size={24} />
+                <div className="p-2.5 bg-gradient-to-br from-emerald-100 to-emerald-50 text-emerald-600 rounded-xl shadow-sm">
+                    <Award size={22} />
                 </div>
                 <div>
                     <h3 className="text-lg font-bold text-slate-800">单价与定分</h3>
@@ -88,33 +91,33 @@ export const ProductionData: React.FC = () => {
             </div>
             <div className="space-y-4">
                 <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">单价 (分/m²)</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">单价 (分/m²)</label>
                     <input 
                         type="number" 
                         disabled={!canEditUnitPrice}
                         value={currentData.params.unitPrice}
                         onChange={e => updateParams({ unitPrice: parseFloat(e.target.value) || 0 })}
-                        className="w-full text-2xl font-mono border border-slate-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none disabled:bg-slate-50 disabled:text-slate-400"
+                        className="input text-2xl font-mono tabular-nums py-3 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-slate-50 disabled:text-slate-400"
                     />
                 </div>
                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">固定积分包 (Adjustment)</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">固定积分包 (Adjustment)</label>
                     <input 
                         type="number" 
                         disabled={!canEditFixedPack}
                         value={currentData.params.attendancePack}
                         onChange={e => updateParams({ attendancePack: parseFloat(e.target.value) || 0 })}
-                        className="w-full text-lg font-mono border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none disabled:bg-slate-50 disabled:text-slate-400"
+                        className="input text-lg font-mono tabular-nums py-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-slate-50 disabled:text-slate-400"
                     />
                 </div>
             </div>
         </div>
 
         {/* KPI Section */}
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+        <div className="card card-hover">
             <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
-                <div className="p-2 bg-amber-100 text-amber-600 rounded-lg">
-                    <Activity size={24} />
+                <div className="p-2.5 bg-gradient-to-br from-amber-100 to-amber-50 text-amber-600 rounded-xl shadow-sm">
+                    <Activity size={22} />
                 </div>
                 <div>
                     <h3 className="text-lg font-bold text-slate-800">KPI 考核</h3>
@@ -123,23 +126,23 @@ export const ProductionData: React.FC = () => {
             </div>
             <div className="space-y-4">
                 <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">KPI 考核分 (Score)</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">KPI 考核分 (Score)</label>
                     <input 
                         type="number" 
                         disabled={!canEditKPI}
                         value={currentData.params.kpiScore}
                         onChange={e => updateParams({ kpiScore: parseFloat(e.target.value) || 0 })}
-                        className="w-full text-2xl font-mono border border-slate-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-amber-500 outline-none disabled:bg-slate-50 disabled:text-slate-400"
+                        className="input text-2xl font-mono tabular-nums py-3 focus:ring-amber-500 focus:border-amber-500 disabled:bg-slate-50 disabled:text-slate-400"
                     />
                 </div>
             </div>
         </div>
 
         {/* Weights Section */}
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+        <div className="card card-hover">
             <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
-                <div className="p-2 bg-purple-100 text-purple-600 rounded-lg">
-                    <Settings2 size={24} />
+                <div className="p-2.5 bg-gradient-to-br from-violet-100 to-violet-50 text-violet-600 rounded-xl shadow-sm">
+                    <Settings2 size={22} />
                 </div>
                 <div>
                     <h3 className="text-lg font-bold text-slate-800">分配权重</h3>
@@ -147,7 +150,7 @@ export const ProductionData: React.FC = () => {
                 </div>
             </div>
             
-            <div className={`p-6 rounded-xl border-2 ${canEditWeights ? 'border-purple-100 bg-purple-50/50' : 'border-slate-100 bg-slate-50'}`}>
+            <div className={`p-6 rounded-xl border-2 transition-all ${canEditWeights ? 'border-violet-200 bg-gradient-to-br from-violet-50/80 to-violet-50/30' : 'border-slate-100 bg-slate-50'}`}>
                 <div className="flex items-center justify-between gap-4 mb-6">
                     <div className="text-center w-1/3">
                          <div className="text-sm font-bold text-amber-600 mb-2">工时权重</div>
@@ -156,18 +159,18 @@ export const ProductionData: React.FC = () => {
                             disabled={!canEditWeights}
                             value={currentData.params.weightTime}
                             onChange={e => handleWeightChange('time', e.target.value)}
-                            className="w-full text-center text-3xl font-bold bg-white border border-amber-200 rounded-lg py-2 focus:ring-2 focus:ring-amber-500 outline-none"
+                            className="w-full text-center text-3xl font-bold bg-white border-2 border-amber-200 rounded-xl py-2 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-400 outline-none tabular-nums transition-all"
                          />
                     </div>
-                    <div className="text-2xl font-bold text-slate-400">+</div>
+                    <div className="text-2xl font-bold text-slate-300">+</div>
                     <div className="text-center w-1/3">
-                         <div className="text-sm font-bold text-purple-600 mb-2">基础分权重</div>
+                         <div className="text-sm font-bold text-violet-600 mb-2">基础分权重</div>
                          <input 
                             type="number" 
                             disabled={!canEditWeights}
                             value={currentData.params.weightBase}
                             onChange={e => handleWeightChange('base', e.target.value)}
-                            className="w-full text-center text-3xl font-bold bg-white border border-purple-200 rounded-lg py-2 focus:ring-2 focus:ring-purple-500 outline-none"
+                            className="w-full text-center text-3xl font-bold bg-white border-2 border-violet-200 rounded-xl py-2 focus:ring-4 focus:ring-violet-500/20 focus:border-violet-400 outline-none tabular-nums transition-all"
                          />
                     </div>
                 </div>
@@ -176,7 +179,7 @@ export const ProductionData: React.FC = () => {
                     disabled={!canEditWeights}
                     value={currentData.params.weightTime}
                     onChange={e => handleWeightChange('time', e.target.value)}
-                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                    className="w-full h-2 bg-slate-200 rounded-full appearance-none cursor-pointer accent-violet-600"
                 />
             </div>
         </div>

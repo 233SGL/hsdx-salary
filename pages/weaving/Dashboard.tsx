@@ -78,11 +78,13 @@ export const WeavingDashboard = () => {
   return (
     <div className="h-full flex flex-col">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-slate-900 mb-2 flex items-center gap-3">
-          <HardHat className="text-blue-600" size={32} />
+        <h1 className="text-2xl font-bold text-slate-800 mb-2 flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-gradient-to-br from-primary-100 to-primary-50 text-primary-600 shadow-sm">
+            <HardHat size={24} />
+          </div>
           织造工段 - 数据大盘
         </h1>
-        <p className="text-slate-600">
+        <p className="text-slate-500 text-sm">
           管理员班考核指标概览与积分分析
         </p>
       </div>
@@ -90,46 +92,46 @@ export const WeavingDashboard = () => {
       <div className="flex-1 overflow-y-auto custom-scrollbar pb-10">
         {/* 关键指标卡片 */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+          <div className="card p-4">
             <div className="flex items-center gap-2 text-slate-500 mb-2">
-              <Activity size={18} />
+              <Activity size={18} className="text-primary-500" />
               <span className="text-sm font-medium">成网率</span>
             </div>
-            <div className="text-2xl font-bold text-slate-900">{monthlyData.netFormationRate}%</div>
+            <div className="text-2xl font-bold text-slate-900 tabular-nums">{monthlyData.netFormationRate}%</div>
             <div className="text-xs text-slate-400 mt-1">基准: {config.netFormationBenchmark}%</div>
           </div>
 
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+          <div className="card p-4">
             <div className="flex items-center gap-2 text-slate-500 mb-2">
-              <TrendingUp size={18} />
+              <TrendingUp size={18} className="text-emerald-500" />
               <span className="text-sm font-medium">运转率</span>
             </div>
-            <div className="text-2xl font-bold text-slate-900">{monthlyData.operationRate}%</div>
+            <div className="text-2xl font-bold text-slate-900 tabular-nums">{monthlyData.operationRate}%</div>
             <div className="text-xs text-slate-400 mt-1">基准: {config.operationRateBenchmark}%</div>
           </div>
 
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+          <div className="card p-4">
             <div className="flex items-center gap-2 text-slate-500 mb-2">
-              <Users size={18} />
+              <Users size={18} className="text-amber-500" />
               <span className="text-sm font-medium">在岗人数</span>
             </div>
-            <div className="text-2xl font-bold text-slate-900">{monthlyData.actualOperators} 人</div>
+            <div className="text-2xl font-bold text-slate-900 tabular-nums">{monthlyData.actualOperators} 人</div>
             <div className="text-xs text-slate-400 mt-1">定员: {config.operatorQuota} 人</div>
           </div>
 
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+          <div className="card p-4">
             <div className="flex items-center gap-2 text-slate-500 mb-2">
-              <AlertCircle size={18} />
+              <AlertCircle size={18} className="text-violet-500" />
               <span className="text-sm font-medium">等效产量</span>
             </div>
-            <div className="text-2xl font-bold text-slate-900">{monthlyData.equivalentOutput.toLocaleString()} ㎡</div>
+            <div className="text-2xl font-bold text-slate-900 tabular-nums">{monthlyData.equivalentOutput.toLocaleString()} ㎡</div>
             <div className="text-xs text-slate-400 mt-1">目标: {(config.targetEquivalentOutput * monthlyData.activeMachines).toLocaleString()} ㎡</div>
           </div>
         </div>
 
         {/* 积分计算结果展示 */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
+        <div className="card overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/80">
             <h3 className="font-bold text-slate-800">当月积分预估</h3>
           </div>
           <div className="p-6">

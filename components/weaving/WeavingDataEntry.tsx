@@ -24,10 +24,10 @@ export const WeavingDataEntry: React.FC<WeavingDataEntryProps> = ({
     };
 
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+        <div className="card p-6 mb-6">
             <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-blue-50 border border-blue-100 rounded-lg flex items-center justify-center shadow-sm">
-                    <Calendar className="text-blue-600" size={20} />
+                <div className="w-11 h-11 bg-gradient-to-br from-primary-100 to-primary-50 border border-primary-100 rounded-xl flex items-center justify-center shadow-sm">
+                    <Calendar className="text-primary-600" size={22} />
                 </div>
                 <div>
                     <h3 className="font-semibold text-slate-800">月度数据录入</h3>
@@ -38,7 +38,7 @@ export const WeavingDataEntry: React.FC<WeavingDataEntryProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {/* Row 1 */}
                 <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                         当月织造成网率 (%)
                     </label>
                     <div className="relative">
@@ -46,15 +46,15 @@ export const WeavingDataEntry: React.FC<WeavingDataEntryProps> = ({
                             type="number"
                             value={data.netFormationRate || ''}
                             onChange={(e) => handleChange('netFormationRate', parseFloat(e.target.value))}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all duration-200 outline-none"
+                            className="input pr-8"
                             placeholder="例如: 75"
                         />
-                        <span className="absolute right-3 top-2 text-slate-400">%</span>
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">%</span>
                     </div>
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                         当月织造等效产量 (㎡)
                     </label>
                     <div className="relative flex gap-2">
@@ -62,12 +62,12 @@ export const WeavingDataEntry: React.FC<WeavingDataEntryProps> = ({
                             type="number"
                             value={data.equivalentOutput || ''}
                             onChange={(e) => handleChange('equivalentOutput', parseFloat(e.target.value))}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                            className="input flex-1"
                             placeholder="点击右侧计算器辅助计算"
                         />
                         <button
                             onClick={() => setIsCalculatorOpen(true)}
-                            className="px-3 py-2 bg-blue-50 text-blue-600 rounded-lg border border-blue-200 hover:bg-blue-100 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow"
+                            className="px-3 py-2 bg-gradient-to-br from-primary-50 to-primary-100 text-primary-600 rounded-xl border border-primary-200 hover:from-primary-100 hover:to-primary-200 transition-all duration-200 shadow-sm hover:shadow"
                             title="打开等效产量计算器"
                         >
                             <Calculator size={20} />
@@ -76,7 +76,7 @@ export const WeavingDataEntry: React.FC<WeavingDataEntryProps> = ({
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                         当月织机运转率 (%)
                     </label>
                     <div className="relative">
@@ -84,49 +84,49 @@ export const WeavingDataEntry: React.FC<WeavingDataEntryProps> = ({
                             type="number"
                             value={data.operationRate || ''}
                             onChange={(e) => handleChange('operationRate', parseFloat(e.target.value))}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                            className="input pr-8"
                             placeholder="例如: 78"
                         />
-                        <span className="absolute right-3 top-2 text-slate-400">%</span>
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">%</span>
                     </div>
                 </div>
 
                 {/* Row 2 */}
                 <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                         有效机台总数
                     </label>
                     <input
                         type="number"
                         value={data.activeMachines || ''}
                         onChange={(e) => handleChange('activeMachines', parseFloat(e.target.value))}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="input"
                         placeholder="默认: 10"
                     />
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                         操作工实际人数
                     </label>
                     <input
                         type="number"
                         value={data.actualOperators || ''}
                         onChange={(e) => handleChange('actualOperators', parseFloat(e.target.value))}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="input"
                         placeholder="默认: 17"
                     />
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                         出勤天数 (用于基本积分)
                     </label>
                     <input
                         type="number"
                         value={data.attendanceDays || ''}
                         onChange={(e) => handleChange('attendanceDays', parseFloat(e.target.value))}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="input"
                         placeholder="默认满勤"
                     />
                 </div>

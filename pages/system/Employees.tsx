@@ -22,8 +22,12 @@ import {
     FolderPlus,
     ChevronRight,
     MoreVertical,
-    Layers
+    Layers,
+    Lock
 } from 'lucide-react';
+
+// 系统核心工段，不可删除（与路由和系统功能硬绑定）
+const PROTECTED_WORKSHOP_CODES = ['styling', 'weaving'];
 
 const StatusBadge = ({ status }: { status: string }) => {
     const styles: Record<string, string> = {
@@ -182,14 +186,24 @@ export const Employees: React.FC = () => {
         }
     };
 
-    const handleDeleteWorkshop = async (e: React.MouseEvent, wsId: string, wsName: string) => {
+    const handleDeleteWorkshop = async (e: React.MouseEvent, wsId: string, wsName: string, wsCode: string) => {
         e.stopPropagation();
         if (!canManage) return;
+        
+        // 保护核心工段不被删除
+        if (PROTECTED_WORKSHOP_CODES.includes(wsCode)) {
+            alert(`❌ 无法删除核心工段\n\n「${wsName}」是系统核心工段，与路由和功能页面绑定。\n删除后会导致系统功能异常。\n\n如需调整，请联系系统管理员。`);
+            return;
+        }
+        
         if (confirm(`⚠️ 严重警告：确定要删除整个工段 "${wsName}" 吗？\n此操作不可逆！\n请确保该工段下的所有员工已被转移或删除。`)) {
             await deleteWorkshop(wsId);
             if (selectedWorkshopId === wsId) setSelectedWorkshopId(null);
         }
     };
+
+    // 检查工段是否为核心工段
+    const isProtectedWorkshop = (code: string) => PROTECTED_WORKSHOP_CODES.includes(code);
 
     if (!canView && !canManage) {
         return (
@@ -201,24 +215,19 @@ export const Employees: React.FC = () => {
     }
 
     return (
-        <div className="h-full flex flex-col md:flex-row gap-6 animate-fade-in">
+        <div className="h-full flex flex-col md:flex-row gap-6 animate-fade-in-up">
 
             {/* LEFT PANE: Workshops & Folders */}
-            <div className="w-full md:w-72 flex-shrink-0 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
-                <div className="p-4 border-b border-slate-100 font-bold text-slate-700 flex justify-between items-center bg-slate-50">
-                    <span className="flex items-center gap-2"><Layers size={18} /> 组织架构</span>
+            <div className="w-full md:w-72 flex-shrink-0 card flex flex-col overflow-hidden">
+                <div className="p-4 border-b border-slate-100 font-bold text-slate-700 flex justify-between items-center bg-slate-50/80">
+                    <span className="flex items-center gap-2"><Layers size={18} className="text-primary-500" /> 组织架构</span>
                     {canManage && (
                         <div className="flex gap-1">
-                            <button
-                                onClick={() => setIsWorkshopModalOpen(true)}
-                                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition" title="新建一级工段"
-                            >
-                                <Plus size={18} />
-                            </button>
+                            {/* 新增工段按钮已移除 - 新工段需要配置路由才能正常工作 */}
                             <button
                                 onClick={() => setIsFolderModalOpen(true)}
                                 disabled={!selectedWorkshopId}
-                                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition disabled:opacity-30" title="新建部门文件夹"
+                                className="p-1.5 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-all disabled:opacity-30" title="新建部门文件夹"
                             >
                                 <FolderPlus size={18} />
                             </button>
@@ -236,28 +245,34 @@ export const Employees: React.FC = () => {
                             <div key={ws.id} className="group/ws">
                                 <div
                                     onClick={() => { setSelectedWorkshopId(ws.id); setSelectedFolder(null); }}
-                                    className={`flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer font-bold transition-colors ${isWsSelected ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50'}`}
+                                    className={`flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer font-bold transition-all ${isWsSelected ? 'bg-primary-50 text-primary-700' : 'text-slate-600 hover:bg-slate-50'}`}
                                 >
                                     <div className="flex items-center gap-2">
-                                        <ChevronRight size={16} className={`transition-transform duration-200 ${isWsSelected ? 'rotate-90' : ''}`} />
+                                        <ChevronRight size={16} className={`transition-transform duration-200 ${isWsSelected ? 'rotate-90 text-primary-500' : ''}`} />
                                         <span>{ws.name}</span>
                                     </div>
                                     {canManage && (
-                                        <button
-                                            onClick={(e) => handleDeleteWorkshop(e, ws.id, ws.name)}
-                                            className="text-slate-300 hover:text-red-500 opacity-0 group-hover/ws:opacity-100 transition-opacity p-1"
-                                            title="删除工段"
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
+                                        isProtectedWorkshop(ws.code) ? (
+                                            <span className="text-slate-300 p-1" title="核心工段，不可删除">
+                                                <Lock size={14} />
+                                            </span>
+                                        ) : (
+                                            <button
+                                                onClick={(e) => handleDeleteWorkshop(e, ws.id, ws.name, ws.code)}
+                                                className="text-slate-300 hover:text-red-500 opacity-0 group-hover/ws:opacity-100 transition-opacity p-1"
+                                                title="删除工段"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        )
                                     )}
                                 </div>
 
                                 {isWsSelected && (
-                                    <div className="ml-3 mt-1 space-y-0.5 border-l-2 border-slate-200 pl-2 animate-fade-in">
+                                    <div className="ml-3 mt-1.5 space-y-0.5 border-l-2 border-primary-200 pl-3 animate-fade-in-up">
                                         <div
                                             onClick={() => setSelectedFolder(null)}
-                                            className={`px-3 py-2 rounded-md text-sm cursor-pointer transition-colors ${!selectedFolder ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+                                            className={`px-3 py-2 rounded-lg text-sm cursor-pointer transition-all ${!selectedFolder ? 'bg-primary-100 text-primary-700 font-semibold' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
                                         >
                                             全部人员
                                         </div>
@@ -265,10 +280,10 @@ export const Employees: React.FC = () => {
                                             <div
                                                 key={dept}
                                                 onClick={() => setSelectedFolder(dept)}
-                                                className={`flex items-center justify-between px-3 py-2 rounded-md text-sm cursor-pointer group/folder transition-colors ${selectedFolder === dept ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+                                                className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm cursor-pointer group/folder transition-all ${selectedFolder === dept ? 'bg-primary-100 text-primary-700 font-semibold' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
                                             >
                                                 <div className="flex items-center gap-2">
-                                                    <FolderOpen size={14} className={selectedFolder === dept ? 'text-blue-500' : 'text-slate-400'} />
+                                                    <FolderOpen size={14} className={selectedFolder === dept ? 'text-primary-500' : 'text-slate-400'} />
                                                     <span>{dept}</span>
                                                 </div>
                                                 {canManage && (
@@ -294,24 +309,24 @@ export const Employees: React.FC = () => {
             <div className="flex-1 flex flex-col space-y-4 overflow-hidden">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800">
+                        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
                             {selectedWorkshopId ? workshops.find(w => w.id === selectedWorkshopId)?.name : '所有员工'}
-                            {selectedFolder && <span className="text-slate-400"> / {selectedFolder}</span>}
+                            {selectedFolder && <span className="text-slate-400 font-normal"> / {selectedFolder}</span>}
                         </h1>
-                        <p className="text-slate-500">人员档案管理</p>
+                        <p className="text-slate-500 text-sm mt-0.5">人员档案管理</p>
                     </div>
                     {canManage && (
                         <button
                             onClick={handleCreateClick}
                             disabled={!selectedWorkshopId}
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-lg shadow-blue-200 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <Plus size={18} /> 新增员工
                         </button>
                     )}
                 </div>
 
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4">
+                <div className="card p-4 flex flex-col md:flex-row gap-4">
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                         <label htmlFor="employee-search" className="sr-only">搜索姓名或职位</label>
@@ -319,17 +334,17 @@ export const Employees: React.FC = () => {
                             id="employee-search"
                             type="text"
                             placeholder="搜索姓名或职位..."
-                            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="input pl-10"
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                         />
                     </div>
                     <div className="flex items-center gap-2">
-                        <Filter size={18} className="text-slate-500" />
+                        <Filter size={18} className="text-slate-400" />
                         <label htmlFor="employee-status-filter" className="sr-only">筛选在职状态</label>
                         <select
                             id="employee-status-filter"
-                            className="border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:outline-none"
+                            className="input py-2 min-w-[120px]"
                             value={statusFilter}
                             onChange={e => setStatusFilter(e.target.value)}
                         >
@@ -343,37 +358,37 @@ export const Employees: React.FC = () => {
                 </div>
 
                 <div className="flex-1 overflow-y-auto custom-scrollbar">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pb-6">
                         {filteredEmployees.map(emp => (
-                            <div key={emp.id} className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow p-6 flex flex-col relative group">
+                            <div key={emp.id} className="card card-hover p-5 flex flex-col relative group">
                                 <div className="flex justify-between items-start mb-4">
-                                    <div className="flex items-center gap-4">
-                                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${emp.gender === 'male' ? 'bg-blue-100 text-blue-600' : 'bg-pink-100 text-pink-600'}`}>
+                                    <div className="flex items-center gap-3.5">
+                                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold shadow-sm ${emp.gender === 'male' ? 'bg-gradient-to-br from-primary-100 to-primary-50 text-primary-600' : 'bg-gradient-to-br from-pink-100 to-pink-50 text-pink-600'}`}>
                                             {emp.name[0]}
                                         </div>
                                         <div>
                                             <h3 className="font-bold text-slate-800 text-lg">{emp.name}</h3>
-                                            <div className="text-xs text-slate-500 flex items-center gap-1">
+                                            <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                                                 {emp.department} · {emp.position}
-                                                {emp.machineId && <span className="bg-purple-100 text-purple-700 px-1.5 rounded ml-1">{emp.machineId}</span>}
+                                                {emp.machineId && <span className="bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-md ml-1 font-medium">{emp.machineId}</span>}
                                             </div>
                                         </div>
                                     </div>
                                     <StatusBadge status={emp.status} />
                                 </div>
 
-                                <div className="space-y-3 mb-6 flex-1">
+                                <div className="space-y-2.5 mb-5 flex-1">
                                     <div className="flex justify-between text-sm">
                                         <span className="text-slate-500">入职日期</span>
-                                        <span className="font-medium text-slate-700">{formatDate(emp.joinDate)}</span>
+                                        <span className="font-medium text-slate-700 tabular-nums">{formatDate(emp.joinDate)}</span>
                                     </div>
                                     <div className="flex justify-between text-sm">
                                         <span className="text-slate-500">每日工时标准</span>
                                         <span className="font-medium text-slate-700">{emp.expectedDailyHours || 12} 小时</span>
                                     </div>
-                                    <div className="flex justify-between text-sm items-center pt-2 border-t border-slate-100">
-                                        <span className="text-slate-500 font-bold">技能基础分</span>
-                                        <span className="font-bold text-blue-600 text-lg bg-blue-50 px-2 rounded">{emp.standardBaseScore}</span>
+                                    <div className="flex justify-between text-sm items-center pt-3 border-t border-slate-100">
+                                        <span className="text-slate-600 font-semibold">技能基础分</span>
+                                        <span className="font-bold text-primary-600 text-lg bg-primary-50 px-2.5 py-0.5 rounded-lg tabular-nums">{emp.standardBaseScore}</span>
                                     </div>
                                 </div>
 

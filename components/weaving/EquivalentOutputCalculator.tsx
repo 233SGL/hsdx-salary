@@ -59,15 +59,17 @@ export const EquivalentOutputCalculator: React.FC<EquivalentOutputCalculatorProp
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-zoom-in">
                 <div className="flex items-center justify-between p-6 border-b border-slate-200">
-                    <div className="flex items-center gap-2">
-                        <Calculator className="text-blue-600" size={24} />
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 rounded-xl bg-gradient-to-br from-primary-100 to-primary-50 text-primary-600 shadow-sm">
+                            <Calculator size={22} />
+                        </div>
                         <h2 className="text-xl font-bold text-slate-900">等效产量计算器</h2>
                     </div>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-                        <X size={24} />
+                    <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all">
+                        <X size={22} />
                     </button>
                 </div>
 
@@ -148,21 +150,21 @@ export const EquivalentOutputCalculator: React.FC<EquivalentOutputCalculatorProp
                     </div>
                 </div>
 
-                <div className="p-6 border-t border-slate-200 bg-slate-50 rounded-b-xl flex items-center justify-between">
+                <div className="p-6 border-t border-slate-200 bg-slate-50/80 rounded-b-2xl flex items-center justify-between">
                     <div className="flex flex-col">
-                        <span className="text-sm text-slate-500">总等效产量</span>
-                        <span className="text-2xl font-bold text-blue-600">{totalEquivalentOutput.toFixed(2)}</span>
+                        <span className="text-sm text-slate-500 font-medium">总等效产量</span>
+                        <span className="text-2xl font-bold text-primary-600 tabular-nums">{totalEquivalentOutput.toFixed(2)}</span>
                     </div>
                     <div className="flex gap-3">
                         <button
                             onClick={onClose}
-                            className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
+                            className="btn-secondary"
                         >
                             取消
                         </button>
                         <button
                             onClick={() => onConfirm(totalEquivalentOutput)}
-                            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                            className="btn-primary"
                         >
                             确认并填入
                         </button>
