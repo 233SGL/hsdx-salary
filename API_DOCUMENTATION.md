@@ -202,6 +202,44 @@ PUT /api/weaving/employees/:id
 DELETE /api/weaving/employees/:id
 ```
 
+### 网种/产品管理
+
+#### 获取所有网种
+
+```
+GET /api/weaving/products
+```
+
+**响应示例**:
+```json
+[
+  {
+    "id": "product_13weft",
+    "name": "13纬密网",
+    "weftDensity": 13,
+    "isActive": true
+  }
+]
+```
+
+#### 创建网种
+
+```
+POST /api/weaving/products
+```
+
+#### 更新网种
+
+```
+PUT /api/weaving/products/:id
+```
+
+#### 删除网种
+
+```
+DELETE /api/weaving/products/:id
+```
+
 ### 机台管理
 
 #### 获取所有机台
@@ -216,8 +254,9 @@ GET /api/weaving/machines
   {
     "id": "H1",
     "name": "1号机",
-    "speedType": "H2",
     "width": 8.5,
+    "effectiveWidth": 7.7,
+    "speedWeftPerMin": 41,
     "targetOutput": 6450,
     "status": "running"
   }
@@ -228,6 +267,96 @@ GET /api/weaving/machines
 
 ```
 PUT /api/weaving/machines/:id
+```
+
+**请求体**:
+```json
+{
+  "name": "1号机",
+  "width": 8.5,
+  "effectiveWidth": 7.7,
+  "speedWeftPerMin": 41,
+  "targetOutput": 6450,
+  "status": "running"
+}
+```
+
+### 生产记录管理
+
+#### 获取指定月份的生产记录
+
+```
+GET /api/weaving/production-records?year=2024&month=12
+```
+
+**响应示例**:
+```json
+[
+  {
+    "id": 1,
+    "productionDate": "2024-12-05",
+    "machineId": "H1",
+    "machineName": "1号机",
+    "productId": "product_13weft",
+    "productName": "13纬密网",
+    "length": 120,
+    "machineWidth": 8.5,
+    "weftDensity": 13,
+    "actualArea": 1020,
+    "equivalentOutput": 1020,
+    "qualityGrade": "A",
+    "isQualified": true,
+    "startTime": "2024-12-05T08:00:00",
+    "endTime": "2024-12-05T16:00:00"
+  }
+]
+```
+
+#### 创建生产记录
+
+```
+POST /api/weaving/production-records
+Content-Type: application/json
+
+{
+  "productionDate": "2024-12-05",
+  "machineId": "H1",
+  "productId": "product_13weft",
+  "length": 120,
+  "qualityGrade": "A",
+  "isQualified": true,
+  "startTime": "2024-12-05T08:00:00",
+  "endTime": "2024-12-05T16:00:00",
+  "notes": ""
+}
+```
+
+#### 删除生产记录
+
+```
+DELETE /api/weaving/production-records/:id
+```
+
+### 月度汇总
+
+#### 获取月度汇总数据
+
+```
+GET /api/weaving/monthly-summary/:year/:month
+```
+
+**响应示例**:
+```json
+{
+  "totalNets": 150,
+  "totalLength": 18000,
+  "totalArea": 153000,
+  "equivalentOutput": 153000,
+  "netFormationRate": 72.5,
+  "operationRate": 78.3,
+  "activeMachines": 10,
+  "actualOperators": 22
+}
 ```
 
 ### 配置管理
@@ -384,21 +513,33 @@ HTTP 状态码：
 |------|------|
 | `weaving_employees` | 织造工段员工表 |
 | `weaving_machines` | 机台配置表 |
+| `weaving_products` | 网种/产品表 |
+| `weaving_production_records` | 生产记录表（每张网一条） |
 | `weaving_config` | 工段配置参数表 |
-| `weaving_monthly_data` | 月度汇总数据表 |
-| `weaving_machine_monthly_records` | 机台月度产量明细表 |
+| `weaving_monthly_summary` | 月度汇总数据表 |
 
-### 员工岗位类型
+### 员工岗位类型（织造工段）
+
+| 职位名称 | 基本工资 | 系数 | 说明 |
+|----------|----------|------|------|
+| 机台管理员班长 | 3500 | 1.3 | 管理员班班长 |
+| 机台管理员 | 2500 | 1.0 | 管理员班成员 |
+
+### 机台属性说明
+
+| 字段 | 说明 |
+|------|------|
+| `width` | 织造宽度 (m) |
+| `effectiveWidth` | 有效宽度 (m)，用于计算实际面积 |
+| `speedWeftPerMin` | 织造速度 (纬/分) |
+| `targetOutput` | 月目标产量 (㎡) |
+| `status` | 状态：running/threading/maintenance/idle |
+
+### 机台状态
 
 | 值 | 说明 |
 |----|------|
-| `admin_leader` | 管理员班长 |
-| `admin_member` | 管理员班员 |
-| `operator` | 操作工 |
-
-### 机台速度类型
-
-| 值 | 速度系数 | 说明 |
-|----|----------|------|
-| `H2` | 1.0 | 高速机 |
-| `H5` | 0.56 | 低速机 |
+| `running` | 运行中 |
+| `threading` | 穿线中 |
+| `maintenance` | 维护中 |
+| `idle` | 停机 |
