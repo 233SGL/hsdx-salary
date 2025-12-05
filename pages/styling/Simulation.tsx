@@ -491,30 +491,28 @@ export const Simulation: React.FC = () => {
           </div>
           
           <div className="flex-1 flex items-center justify-center gap-12">
-              {/* 左侧：饼图 - 容器要足够大以容纳标签 */}
+              {/* 左侧：饼图 - 使用固定尺寸避免 ResponsiveContainer 警告 */}
               <div className="relative flex items-center justify-center" style={{ width: '600px', height: '400px' }}>
                   <div className="absolute inset-0 bg-blue-500/10 rounded-full blur-3xl"></div>
-                  <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                          <Pie
-                            data={pieData}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={{ stroke: '#94a3b8', strokeWidth: 2, strokeDasharray: '3 3' }}
-                            label={renderCustomPieLabel}
-                            innerRadius={60}
-                            outerRadius={110} 
-                            fill="#8884d8"
-                            dataKey="value"
-                            isAnimationActive={false}
-                            strokeWidth={0}
-                          >
-                            {pieData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                      </PieChart>
-                  </ResponsiveContainer>
+                  <PieChart width={600} height={400}>
+                      <Pie
+                        data={pieData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={{ stroke: '#94a3b8', strokeWidth: 2, strokeDasharray: '3 3' }}
+                        label={renderCustomPieLabel}
+                        innerRadius={60}
+                        outerRadius={110} 
+                        fill="#8884d8"
+                        dataKey="value"
+                        isAnimationActive={false}
+                        strokeWidth={0}
+                      >
+                        {pieData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                  </PieChart>
                   {/* 中心数字 */}
                   <div className="absolute inset-0 flex items-center justify-center">
                       <div className="text-center">
@@ -611,7 +609,7 @@ export const Simulation: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm" style={{height: 400}}>
                     <h3 className="font-bold text-slate-700 mb-4">模拟结果预览</h3>
-                      <ResponsiveContainer width="100%" height={350}>
+                      <ResponsiveContainer width="100%" height={350} minWidth={100} minHeight={100}>
                         <BarChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} />
                             <XAxis dataKey="name" />
@@ -715,35 +713,14 @@ export const Simulation: React.FC = () => {
                {/* Background Elements */}
                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-900/20 via-slate-900 to-slate-900 -z-10"></div>
 
+              {/* 只渲染当前幻灯片，避免隐藏的图表容器尺寸为0报警告 */}
               <div 
-                className={`absolute inset-0 transition-all duration-700 ease-out ${
-                  slideIndex === 0 
-                    ? 'opacity-100 z-10 translate-x-0 scale-100' 
-                    : 'opacity-0 z-0 pointer-events-none translate-x-8 scale-[0.98]'
-                }`}
+                className="absolute inset-0 transition-all duration-700 ease-out"
                 style={{ willChange: 'opacity, transform' }}
               >
-                <SlideOverview />
-              </div>
-              <div 
-                className={`absolute inset-0 transition-all duration-700 ease-out ${
-                  slideIndex === 1 
-                    ? 'opacity-100 z-10 translate-x-0 scale-100' 
-                    : 'opacity-0 z-0 pointer-events-none translate-x-8 scale-[0.98]'
-                }`}
-                style={{ willChange: 'opacity, transform' }}
-              >
-                <SlideLeaderboard />
-              </div>
-              <div 
-                className={`absolute inset-0 transition-all duration-700 ease-out ${
-                  slideIndex === 2 
-                    ? 'opacity-100 z-10 translate-x-0 scale-100' 
-                    : 'opacity-0 z-0 pointer-events-none translate-x-8 scale-[0.98]'
-                }`}
-                style={{ willChange: 'opacity, transform' }}
-              >
-                <SlideDistribution />
+                {slideIndex === 0 && <SlideOverview />}
+                {slideIndex === 1 && <SlideLeaderboard />}
+                {slideIndex === 2 && <SlideDistribution />}
               </div>
           </div>
 
