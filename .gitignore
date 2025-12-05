@@ -29,12 +29,12 @@ dist-ssr
 .codebuddy
 .github/copilot-instructions.md
 
-# Environment files (包含敏感信息)
+# Environment files (本地配置)
 .env
 .env.local
-.env.server
 .env.*.local
 !.env.example
+!.env.server
 
 # 测试和临时文件
 *.pdf
