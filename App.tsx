@@ -38,10 +38,13 @@ import { StylingSettings } from './pages/styling/StylingSettings';
 import { Simulation } from './pages/styling/Simulation';
 import { Attendance } from './pages/styling/Attendance';
 import { ProductionData } from './pages/styling/ProductionData';
-import { WeavingDashboard } from './pages/weaving/Dashboard';
-import { DataEntry as WeavingDataEntry } from './pages/weaving/DataEntry';
-import { WeavingCalculator } from './pages/weaving/Calculator';
-import { Configuration as WeavingConfiguration } from './pages/weaving/Configuration';
+// 织造工段新页面
+import { ProductionEntry } from './pages/weaving/ProductionEntry';
+import { ProductionRecords } from './pages/weaving/ProductionRecords';
+import { MonthlySummary } from './pages/weaving/MonthlySummary';
+import { BonusCalculation } from './pages/weaving/BonusCalculation';
+import { MachineManagement } from './pages/weaving/MachineManagement';
+import { ProductManagement } from './pages/weaving/ProductManagement';
 import { Menu, Loader2, HardHat } from 'lucide-react';
 import { getDefaultRoute } from './utils/routeHelpers';
 
@@ -166,25 +169,35 @@ const App: React.FC = () => {
               </Layout>
             } />
 
-            {/* Weaving Section Routes */}
+            {/* Weaving Section Routes - 新页面结构 */}
             <Route path="/weaving" element={
               <Layout>
-                <WeavingDashboard />
+                <MonthlySummary />
               </Layout>
             } />
-            <Route path="/weaving/data-entry" element={
+            <Route path="/weaving/entry" element={
               <Layout>
-                <WeavingDataEntry />
+                <ProductionEntry />
               </Layout>
             } />
-            <Route path="/weaving/calculator" element={
+            <Route path="/weaving/records" element={
               <Layout>
-                <WeavingCalculator />
+                <ProductionRecords />
               </Layout>
             } />
-            <Route path="/weaving/config" element={
+            <Route path="/weaving/bonus" element={
               <Layout>
-                <WeavingConfiguration />
+                <BonusCalculation />
+              </Layout>
+            } />
+            <Route path="/weaving/machines" element={
+              <Layout>
+                <MachineManagement />
+              </Layout>
+            } />
+            <Route path="/weaving/products" element={
+              <Layout>
+                <ProductManagement />
               </Layout>
             } />
 

@@ -108,7 +108,9 @@ export const Employees: React.FC = () => {
         status: 'active',
         phone: '',
         notes: '',
-        expectedDailyHours: 12
+        expectedDailyHours: 12,
+        coefficient: 1.0,
+        baseSalary: 0
     };
     const [formData, setFormData] = useState<Omit<Employee, 'id'>>(initialFormState);
 
@@ -504,12 +506,31 @@ export const Employees: React.FC = () => {
                                     </div>
                                     <div>
                                         <label htmlFor="employee-position" className="block text-sm font-medium text-slate-700 mb-1">职位</label>
-                                        <input
-                                            id="employee-position"
-                                            type="text"
-                                            className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                                            value={formData.position} onChange={e => setFormData({ ...formData, position: e.target.value })}
-                                        />
+                                        {workshops.find(w => w.id === formData.workshopId)?.code === 'weaving' ? (
+                                            <select
+                                                id="employee-position"
+                                                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                                                value={formData.position}
+                                                onChange={e => {
+                                                    const pos = e.target.value;
+                                                    // 自动设置基本工资和系数
+                                                    const baseSalary = pos === '机台管理员班长' ? 3500 : pos === '机台管理员' ? 2500 : 0;
+                                                    const coefficient = pos === '机台管理员班长' ? 1.3 : 1.0;
+                                                    setFormData({ ...formData, position: pos, baseSalary, coefficient });
+                                                }}
+                                            >
+                                                <option value="">请选择职位</option>
+                                                <option value="机台管理员班长">机台管理员班长</option>
+                                                <option value="机台管理员">机台管理员</option>
+                                            </select>
+                                        ) : (
+                                            <input
+                                                id="employee-position"
+                                                type="text"
+                                                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                                                value={formData.position} onChange={e => setFormData({ ...formData, position: e.target.value })}
+                                            />
+                                        )}
                                     </div>
                                     <div>
                                         <label htmlFor="employee-gender" className="block text-sm font-medium text-slate-700 mb-1">性别</label>
@@ -557,7 +578,7 @@ export const Employees: React.FC = () => {
                                                 onChange={e => setFormData({ ...formData, machineId: e.target.value })}
                                             >
                                                 <option value="">未分配</option>
-                                                <option value="管理员">管理员</option>
+                                                <option value="admin">管理员班长</option>
                                                 {Array.from({ length: 11 }, (_, i) => `H${i + 1}`).map(m => (
                                                     <option key={m} value={m}>{m}</option>
                                                 ))}
@@ -567,7 +588,8 @@ export const Employees: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* Score and Hours */}
+                            {/* Score and Hours - 仅定型工段显示 */}
+                            {workshops.find(w => w.id === formData.workshopId)?.code !== 'weaving' && (
                             <div className="space-y-4">
                                 <h3 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-2">
                                     <CreditCard size={16} /> 积分与工时标准
@@ -601,6 +623,48 @@ export const Employees: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
+                            )}
+
+                            {/* 织造工段专用：基本工资和分配系数 */}
+                            {workshops.find(w => w.id === formData.workshopId)?.code === 'weaving' && (
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-2">
+                                    <CreditCard size={16} /> 薪资与奖金分配
+                                </h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                                        <label htmlFor="employee-base-salary" className="block text-sm font-medium text-slate-700 mb-2">基本工资</label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                id="employee-base-salary"
+                                                type="number"
+                                                className="w-full text-lg font-bold border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-blue-600"
+                                                value={formData.baseSalary || 0}
+                                                onChange={e => setFormData({ ...formData, baseSalary: parseInt(e.target.value) || 0 })}
+                                            />
+                                            <span className="text-slate-400 text-sm whitespace-nowrap">元</span>
+                                        </div>
+                                        <p className="text-xs text-slate-500 mt-2">班长3500，班员2500</p>
+                                    </div>
+                                    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                                        <label htmlFor="employee-coefficient" className="block text-sm font-medium text-slate-700 mb-2">分配系数</label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                id="employee-coefficient"
+                                                type="number"
+                                                step="0.1"
+                                                min="0"
+                                                className="w-full text-lg font-bold border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-blue-600"
+                                                value={formData.coefficient || 1.0}
+                                                onChange={e => setFormData({ ...formData, coefficient: parseFloat(e.target.value) || 1.0 })}
+                                            />
+                                            <span className="text-slate-400 text-sm whitespace-nowrap">倍</span>
+                                        </div>
+                                        <p className="text-xs text-slate-500 mt-2">班长1.3，班员1.0</p>
+                                    </div>
+                                </div>
+                            </div>
+                            )}
 
                             <div className="pt-4 border-t border-slate-100 flex justify-end gap-3">
                                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">取消</button>

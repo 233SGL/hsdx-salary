@@ -389,24 +389,11 @@ export const Settings: React.FC = () => {
                               />
                           </div>
                           <div>
-                              <label htmlFor="user-role" className="block text-sm font-medium text-slate-700 mb-1">系统角色模板</label>
-                              <select 
-                                  id="user-role"
-                                  className="w-full border border-slate-300 rounded px-3 py-2"
-                                  value={userForm.role}
-                                  onChange={e => setUserForm({...userForm, role: e.target.value as UserRole})}
-                              >
-                                  {Object.keys(ROLE_LABELS).filter(k => k !== 'GUEST').map(r => (
-                                      <option key={r} value={r}>{ROLE_LABELS[r as UserRole]}</option>
-                                  ))}
-                              </select>
-                          </div>
-                          <div className="col-span-2">
-                                         <label htmlFor="user-custom-role" className="block text-sm font-medium text-slate-700 mb-1">自定义职位名称 (可选)</label>
-                               <input 
-                                             id="user-custom-role"
+                              <label htmlFor="user-custom-role" className="block text-sm font-medium text-slate-700 mb-1">职位名称</label>
+                              <input 
+                                  id="user-custom-role"
                                   type="text"
-                                  placeholder="例如：车间统计员 (为空则显示角色模板名)"
+                                  placeholder="例如：车间统计员、工段负责人"
                                   className="w-full border border-slate-300 rounded px-3 py-2"
                                   value={userForm.customRoleName || ''}
                                   onChange={e => setUserForm({...userForm, customRoleName: e.target.value})}
@@ -417,11 +404,11 @@ export const Settings: React.FC = () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                           <div>
                             <label className="block text-sm font-bold text-slate-700 mb-3">权限配置</label>
-                            <div className="space-y-4 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                            <div className="space-y-4 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
                                 {Object.entries(permissionGroups).map(([category, perms]) => (
                                     <div key={category} className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                                         <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">{category}</h4>
-                                        <div className="grid grid-cols-1 gap-2">
+                                        <div className="grid grid-cols-1 gap-1">
                                             {(perms as typeof PERMISSION_LIST).map(p => (
                                                 <label key={p.key} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer hover:bg-slate-100 p-1 rounded transition-colors">
                                                     <input 
