@@ -6,7 +6,7 @@
  * 简洁的月度 KPI 概览
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   TrendingUp,
   TrendingDown,
@@ -14,7 +14,8 @@ import {
   Activity,
   CheckCircle,
   Loader2,
-  BarChart3
+  BarChart3,
+  RefreshCw
 } from 'lucide-react';
 
 // ========================================
@@ -49,15 +50,78 @@ interface MachineStats {
 const API_BASE = 'http://localhost:3000/api/weaving';
 
 async function fetchMonthlySummary(year: number, month: number): Promise<MonthlySummary> {
-  const res = await fetch(`${API_BASE}/summary?year=${year}&month=${month}`);
-  if (!res.ok) throw new Error('获取汇总失败');
-  return res.json();
+  // 从生产记录计算汇总数据
+  const recordsRes = await fetch(`${API_BASE}/production-records?year=${year}&month=${month}`);
+  if (!recordsRes.ok) throw new Error('获取生产记录失败');
+  const records = await recordsRes.json();
+  
+  // 获取机台数据
+  const machinesRes = await fetch(`${API_BASE}/machines`);
+  const machines = machinesRes.ok ? await machinesRes.json() : [];
+  const activeMachines = machines.filter((m: any) => m.status === 'running').length;
+  
+  // 获取配置
+  const configRes = await fetch(`${API_BASE}/config`);
+  const config = configRes.ok ? await configRes.json() : { targetEquivalentOutput: 6450 };
+  
+  // 计算汇总
+  const totalNets = records.length;
+  const qualifiedNets = records.filter((r: any) => r.isQualified).length;
+  const totalLength = records.reduce((sum: number, r: any) => sum + (r.length || 0), 0);
+  const totalArea = records.reduce((sum: number, r: any) => sum + (r.actualArea || 0), 0);
+  const totalEquivalent = records.reduce((sum: number, r: any) => sum + (r.equivalentOutput || 0), 0);
+  const netFormationRate = totalNets > 0 ? (qualifiedNets / totalNets) * 100 : 0;
+  const targetEquivalent = (config.targetEquivalentOutput || 6450) * activeMachines;
+  
+  return {
+    totalNets,
+    totalLength,
+    totalArea,
+    totalEquivalent,
+    qualifiedNets,
+    netFormationRate,
+    operationRate: 0, // 运转率需要额外计算
+    activeMachines,
+    targetEquivalent
+  };
 }
 
 async function fetchMachineStats(year: number, month: number): Promise<MachineStats[]> {
-  const res = await fetch(`${API_BASE}/machine-stats?year=${year}&month=${month}`);
-  if (!res.ok) throw new Error('获取机台统计失败');
-  return res.json();
+  // 从生产记录按机台分组统计
+  const recordsRes = await fetch(`${API_BASE}/production-records?year=${year}&month=${month}`);
+  if (!recordsRes.ok) return [];
+  const records = await recordsRes.json();
+  
+  const machinesRes = await fetch(`${API_BASE}/machines`);
+  const machines = machinesRes.ok ? await machinesRes.json() : [];
+  
+  // 按机台分组
+  const statsMap = new Map<string, MachineStats>();
+  
+  for (const record of records) {
+    const machineId = record.machineId;
+    const machine = machines.find((m: any) => m.id === machineId);
+    
+    if (!statsMap.has(machineId)) {
+      statsMap.set(machineId, {
+        machineId,
+        machineName: machine?.name || machineId,
+        netCount: 0,
+        totalLength: 0,
+        totalArea: 0,
+        totalEquivalent: 0
+      });
+    }
+    
+    const stat = statsMap.get(machineId)!;
+    stat.netCount++;
+    stat.totalLength += record.length || 0;
+    stat.totalArea += record.actualArea || 0;
+    stat.totalEquivalent += record.equivalentOutput || 0;
+  }
+  
+  // 转为数组并排序
+  return Array.from(statsMap.values()).sort((a, b) => b.totalEquivalent - a.totalEquivalent);
 }
 
 // ========================================
@@ -134,37 +198,50 @@ export const MonthlySummary: React.FC = () => {
   const [summary, setSummary] = useState<MonthlySummary | null>(null);
   const [machineStats, setMachineStats] = useState<MachineStats[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // 加载数据
-  useEffect(() => {
-    setLoading(true);
-    Promise.all([
-      fetchMonthlySummary(year, month),
-      fetchMachineStats(year, month)
-    ])
-      .then(([summaryData, statsData]) => {
-        setSummary(summaryData);
-        setMachineStats(statsData);
-        setLoading(false);
-      })
-      .catch(err => {
-        // 使用默认数据（API 可能未实现）
-        setSummary({
-          totalNets: 0,
-          totalLength: 0,
-          totalArea: 0,
-          totalEquivalent: 0,
-          qualifiedNets: 0,
-          netFormationRate: 0,
-          operationRate: 0,
-          activeMachines: 10,
-          targetEquivalent: 64500
-        });
-        setMachineStats([]);
-        setLoading(false);
+  // 加载数据函数
+  const loadData = useCallback(async (showRefreshing = false) => {
+    if (showRefreshing) setRefreshing(true);
+    else setLoading(true);
+    
+    try {
+      const [summaryData, statsData] = await Promise.all([
+        fetchMonthlySummary(year, month),
+        fetchMachineStats(year, month)
+      ]);
+      setSummary(summaryData);
+      setMachineStats(statsData);
+    } catch (err) {
+      console.error('加载数据失败:', err);
+      // 使用默认数据
+      setSummary({
+        totalNets: 0,
+        totalLength: 0,
+        totalArea: 0,
+        totalEquivalent: 0,
+        qualifiedNets: 0,
+        netFormationRate: 0,
+        operationRate: 0,
+        activeMachines: 10,
+        targetEquivalent: 64500
       });
+      setMachineStats([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, [year, month]);
+
+  // 初始加载
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // 刷新数据
+  const handleRefresh = () => {
+    loadData(true);
+  };
 
   if (loading) {
     return (
@@ -222,6 +299,15 @@ export const MonthlySummary: React.FC = () => {
               ))}
             </select>
           </div>
+          <div className="w-px h-6 bg-slate-200"></div>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="p-2 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
+            title="刷新数据"
+          >
+            <RefreshCw className={`w-5 h-5 text-slate-600 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
         </div>
       </div>
 
