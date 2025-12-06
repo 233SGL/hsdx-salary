@@ -15,9 +15,9 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Plus, 
-  Check, 
+import {
+  Plus,
+  Check,
   AlertCircle,
   Loader2,
   ChevronDown,
@@ -49,7 +49,7 @@ interface Product {
 // API 函数
 // ========================================
 
-const API_BASE = 'http://localhost:3000/api/weaving';
+const API_BASE = '/api/weaving';
 
 async function fetchMachines(): Promise<Machine[]> {
   const res = await fetch(`${API_BASE}/machines`);
@@ -120,7 +120,7 @@ export const ProductionEntry: React.FC = () => {
     const machineWidth = selectedMachineData.width;
     const weftDensity = selectedProductData.weftDensity;
     const speedCoef = selectedMachineData.speedType === 'H5' ? 0.56 : 1.0;
-    
+
     const actualArea = lengthNum * machineWidth;
     const outputCoef = weftDensity / 13;
     const widthCoef = 8.5 / machineWidth;
@@ -202,7 +202,7 @@ export const ProductionEntry: React.FC = () => {
       setStartTime('');
       setEndTime('');
       setNotes('');
-      
+
       setTimeout(() => setSuccess(false), 2000);
     } catch (err: any) {
       setError(err.message);
@@ -258,7 +258,7 @@ export const ProductionEntry: React.FC = () => {
       {/* 录入表单 */}
       <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-6 space-y-5">
-          
+
           {/* 第一步：选择机台 */}
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">
@@ -270,11 +270,12 @@ export const ProductionEntry: React.FC = () => {
                   key={m.id}
                   type="button"
                   onClick={() => setSelectedMachine(m.id)}
-                  className={`p-3 rounded-xl border-2 text-center transition-all ${
-                    selectedMachine === m.id
+                  className={`p-3 rounded-xl border-2 text-center transition-all ${selectedMachine === m.id
                       ? 'border-blue-500 bg-blue-50 text-blue-700'
                       : 'border-slate-200 hover:border-slate-300 text-slate-600'
-                  }`}
+                    }`}
+                  aria-label={`选择${m.name}`}
+                  aria-pressed={selectedMachine === m.id}
                 >
                   <div className="font-bold">{m.name}</div>
                   <div className="text-xs text-slate-500 mt-1">
@@ -292,15 +293,18 @@ export const ProductionEntry: React.FC = () => {
 
           {/* 第二步：选择产品/网种 */}
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
+            <label htmlFor="product-select" className="block text-sm font-semibold text-slate-700 mb-2">
               2. 选择网种 <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <select
+                id="product-select"
+                name="product-select"
                 value={selectedProduct}
                 onChange={e => setSelectedProduct(e.target.value)}
                 className="w-full appearance-none bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 required
+                aria-label="选择网种"
               >
                 <option value="">选择产品...</option>
                 {products.filter(p => p.isActive !== false).map(p => (
@@ -309,7 +313,7 @@ export const ProductionEntry: React.FC = () => {
                   </option>
                 ))}
               </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" aria-hidden="true" />
             </div>
             {selectedProductData && (
               <div className="mt-2 text-sm text-emerald-600 bg-emerald-50 px-3 py-2 rounded-lg">
@@ -320,13 +324,15 @@ export const ProductionEntry: React.FC = () => {
 
           {/* 第三步：输入长度 */}
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
+            <label htmlFor="weaving-length" className="block text-sm font-semibold text-slate-700 mb-2">
               3. 织造长度 (米) <span className="text-red-500">*</span>
             </label>
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <Ruler className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <Ruler className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" aria-hidden="true" />
                 <input
+                  id="weaving-length"
+                  name="weaving-length"
                   type="number"
                   value={length}
                   onChange={e => setLength(e.target.value)}
@@ -335,6 +341,7 @@ export const ProductionEntry: React.FC = () => {
                   min="0"
                   className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                   required
+                  aria-label="织造长度"
                 />
               </div>
             </div>
@@ -347,40 +354,48 @@ export const ProductionEntry: React.FC = () => {
             </label>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-xs text-slate-500 mb-1 block">开始时间</label>
+                <label htmlFor="start-time" className="text-xs text-slate-500 mb-1 block">开始时间</label>
                 <div className="flex gap-2">
                   <input
+                    id="start-time"
+                    name="start-time"
                     type="datetime-local"
                     value={startTime}
                     onChange={e => setStartTime(e.target.value)}
                     className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    aria-label="开始时间"
                   />
                   <button
                     type="button"
                     onClick={() => setCurrentTime('start')}
                     className="px-2 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
                     title="设置为当前时间"
+                    aria-label="设置开始时间为当前时间"
                   >
-                    <Clock className="w-4 h-4 text-slate-500" />
+                    <Clock className="w-4 h-4 text-slate-500" aria-hidden="true" />
                   </button>
                 </div>
               </div>
               <div>
-                <label className="text-xs text-slate-500 mb-1 block">结束时间</label>
+                <label htmlFor="end-time" className="text-xs text-slate-500 mb-1 block">结束时间</label>
                 <div className="flex gap-2">
                   <input
+                    id="end-time"
+                    name="end-time"
                     type="datetime-local"
                     value={endTime}
                     onChange={e => setEndTime(e.target.value)}
                     className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    aria-label="结束时间"
                   />
                   <button
                     type="button"
                     onClick={() => setCurrentTime('end')}
                     className="px-2 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
                     title="设置为当前时间"
+                    aria-label="设置结束时间为当前时间"
                   >
-                    <Clock className="w-4 h-4 text-slate-500" />
+                    <Clock className="w-4 h-4 text-slate-500" aria-hidden="true" />
                   </button>
                 </div>
               </div>
@@ -392,21 +407,22 @@ export const ProductionEntry: React.FC = () => {
             <label className="block text-sm font-semibold text-slate-700 mb-2">
               5. 质量等级
             </label>
-            <div className="flex gap-3">
+            <div className="flex gap-3" role="group" aria-label="质量等级选择">
               {(['A', 'B', 'C'] as const).map(grade => (
                 <button
                   key={grade}
                   type="button"
                   onClick={() => setQualityGrade(grade)}
-                  className={`px-6 py-2 rounded-lg font-medium transition-all ${
-                    qualityGrade === grade
-                      ? grade === 'A' 
+                  className={`px-6 py-2 rounded-lg font-medium transition-all ${qualityGrade === grade
+                      ? grade === 'A'
                         ? 'bg-emerald-500 text-white'
                         : grade === 'B'
                           ? 'bg-amber-500 text-white'
                           : 'bg-red-500 text-white'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
+                    }`}
+                  aria-label={`质量等级${grade}级`}
+                  aria-pressed={qualityGrade === grade}
                 >
                   {grade}级
                 </button>
@@ -421,10 +437,12 @@ export const ProductionEntry: React.FC = () => {
 
           {/* 备注 */}
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
+            <label htmlFor="production-notes" className="block text-sm font-semibold text-slate-700 mb-2">
               备注 <span className="text-slate-400 font-normal">(可选)</span>
             </label>
             <textarea
+              id="production-notes"
+              name="production-notes"
               value={notes}
               onChange={e => setNotes(e.target.value)}
               placeholder="填写备注信息..."
@@ -483,11 +501,10 @@ export const ProductionEntry: React.FC = () => {
           <button
             type="submit"
             disabled={submitting || !selectedMachine || !selectedProduct || lengthNum <= 0}
-            className={`w-full py-3.5 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
-              submitting || !selectedMachine || !selectedProduct || lengthNum <= 0
+            className={`w-full py-3.5 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${submitting || !selectedMachine || !selectedProduct || lengthNum <= 0
                 ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
                 : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 shadow-lg shadow-blue-500/30'
-            }`}
+              }`}
           >
             {submitting ? (
               <>

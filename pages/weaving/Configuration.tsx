@@ -8,12 +8,13 @@
  * 
  * @module pages/weaving/Configuration
  */
-import React, { useState } from 'react';
-import { 
+import React, { useState, useEffect } from 'react';
+import {
     Settings, Save, RotateCcw, AlertTriangle,
-    Target, Users, Coins, Percent, Info
+    Target, Users, Coins, Percent, Info, Loader2, CheckCircle
 } from 'lucide-react';
 import { WeavingConfig, DEFAULT_WEAVING_CONFIG, INITIAL_ADMIN_TEAM } from '../../weavingTypes';
+import { db } from '../../services/db';
 
 // 配置项组件
 interface ConfigItemProps {
@@ -58,25 +59,58 @@ const ConfigItem: React.FC<ConfigItemProps> = ({
 
 export const Configuration = () => {
     const [config, setConfig] = useState<WeavingConfig>(DEFAULT_WEAVING_CONFIG);
+    const [originalConfig, setOriginalConfig] = useState<WeavingConfig>(DEFAULT_WEAVING_CONFIG);
     const [hasChanges, setHasChanges] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveSuccess, setSaveSuccess] = useState(false);
+
+    // 从数据库加载配置
+    useEffect(() => {
+        const loadConfig = async () => {
+            try {
+                const dbConfig = await db.getWeavingConfig();
+                if (dbConfig && Object.keys(dbConfig).length > 0) {
+                    setConfig(dbConfig);
+                    setOriginalConfig(dbConfig);
+                }
+            } catch (error) {
+                console.error('加载配置失败:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        loadConfig();
+    }, []);
 
     // 更新配置
     const updateConfig = (key: keyof WeavingConfig, value: number) => {
         setConfig(prev => ({ ...prev, [key]: value }));
         setHasChanges(true);
+        setSaveSuccess(false);
     };
 
     // 重置配置
     const resetConfig = () => {
-        setConfig(DEFAULT_WEAVING_CONFIG);
+        setConfig(originalConfig);
         setHasChanges(false);
     };
 
-    // 保存配置
-    const saveConfig = () => {
-        // TODO: 保存到数据库
-        console.log('保存配置:', config);
-        setHasChanges(false);
+    // 保存配置到数据库
+    const saveConfig = async () => {
+        setIsSaving(true);
+        try {
+            await db.saveWeavingConfig(config);
+            setOriginalConfig(config);
+            setHasChanges(false);
+            setSaveSuccess(true);
+            setTimeout(() => setSaveSuccess(false), 3000);
+        } catch (error) {
+            console.error('保存配置失败:', error);
+            alert('保存失败，请重试');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -96,7 +130,7 @@ export const Configuration = () => {
                         </p>
                     </div>
                     <div className="flex items-center gap-3">
-                        <button 
+                        <button
                             onClick={resetConfig}
                             className="btn-secondary flex items-center gap-2"
                             disabled={!hasChanges}
@@ -104,13 +138,19 @@ export const Configuration = () => {
                             <RotateCcw size={16} />
                             重置
                         </button>
-                        <button 
+                        <button
                             onClick={saveConfig}
-                            className="btn-primary flex items-center gap-2"
-                            disabled={!hasChanges}
+                            className={`btn-primary flex items-center gap-2 ${saveSuccess ? 'bg-emerald-600 hover:bg-emerald-700' : ''}`}
+                            disabled={!hasChanges || isSaving}
                         >
-                            <Save size={16} />
-                            保存配置
+                            {isSaving ? (
+                                <Loader2 size={16} className="animate-spin" />
+                            ) : saveSuccess ? (
+                                <CheckCircle size={16} />
+                            ) : (
+                                <Save size={16} />
+                            )}
+                            {isSaving ? '保存中...' : saveSuccess ? '已保存' : '保存配置'}
                         </button>
                     </div>
                 </div>
@@ -189,16 +229,15 @@ export const Configuration = () => {
                             <h4 className="text-sm font-semibold text-slate-700 mb-3">管理员班组名单</h4>
                             <div className="flex flex-wrap gap-3">
                                 {INITIAL_ADMIN_TEAM.map((person) => (
-                                    <div 
+                                    <div
                                         key={person.name}
-                                        className={`px-4 py-2 rounded-lg border ${
-                                            person.role === '班长' 
-                                                ? 'bg-violet-50 border-violet-200 text-violet-800' 
-                                                : 'bg-white border-slate-200 text-slate-700'
-                                        }`}
+                                        className={`px-4 py-2 rounded-lg border ${person.position === 'admin_leader'
+                                            ? 'bg-violet-50 border-violet-200 text-violet-800'
+                                            : 'bg-white border-slate-200 text-slate-700'
+                                            }`}
                                     >
                                         <span className="font-medium">{person.name}</span>
-                                        <span className="text-xs ml-2 opacity-70">({person.role})</span>
+                                        <span className="text-xs ml-2 opacity-70">({person.position === 'admin_leader' ? '班长' : '班员'})</span>
                                     </div>
                                 ))}
                             </div>
@@ -287,11 +326,11 @@ export const Configuration = () => {
                                 <div className="text-sm text-primary-800">
                                     <p className="font-semibold mb-1">二次分配计算说明</p>
                                     <p>
-                                        总系数 = 班长系数({config.leaderCoef}) + 班员系数({config.memberCoef}) × 班员人数({config.adminTeamSize - 1}) 
+                                        总系数 = 班长系数({config.leaderCoef}) + 班员系数({config.memberCoef}) × 班员人数({config.adminTeamSize - 1})
                                         = <span className="font-bold">{config.leaderCoef + config.memberCoef * (config.adminTeamSize - 1)}</span>
                                     </p>
                                     <p className="mt-1">
-                                        班长奖金 = 总奖金池 ÷ 总系数 × 班长系数 | 
+                                        班长奖金 = 总奖金池 ÷ 总系数 × 班长系数 |
                                         班员奖金 = 总奖金池 ÷ 总系数 × 班员系数
                                     </p>
                                 </div>

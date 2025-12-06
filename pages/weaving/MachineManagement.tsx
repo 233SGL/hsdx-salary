@@ -7,8 +7,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Settings,
+import {
   Activity,
   Pause,
   Wrench,
@@ -38,7 +37,7 @@ interface Machine {
 // API 函数
 // ========================================
 
-const API_BASE = 'http://localhost:3000/api/weaving';
+const API_BASE = '/api/weaving';
 
 async function fetchMachines(): Promise<Machine[]> {
   const res = await fetch(`${API_BASE}/machines`);
@@ -60,30 +59,30 @@ async function updateMachine(id: string, data: Partial<Machine>): Promise<void> 
 // ========================================
 
 const STATUS_CONFIG = {
-  running: { 
-    label: '运行中', 
-    color: 'emerald', 
+  running: {
+    label: '运行中',
+    color: 'emerald',
     icon: Activity,
     bgClass: 'bg-emerald-100 border-emerald-300',
     textClass: 'text-emerald-700'
   },
-  threading: { 
-    label: '穿线中', 
-    color: 'amber', 
+  threading: {
+    label: '穿线中',
+    color: 'amber',
     icon: Pause,
     bgClass: 'bg-amber-100 border-amber-300',
     textClass: 'text-amber-700'
   },
-  maintenance: { 
-    label: '维护中', 
-    color: 'blue', 
+  maintenance: {
+    label: '维护中',
+    color: 'blue',
     icon: Wrench,
     bgClass: 'bg-blue-100 border-blue-300',
     textClass: 'text-blue-700'
   },
-  idle: { 
-    label: '停机', 
-    color: 'slate', 
+  idle: {
+    label: '停机',
+    color: 'slate',
     icon: AlertTriangle,
     bgClass: 'bg-slate-100 border-slate-300',
     textClass: 'text-slate-500'
@@ -108,12 +107,11 @@ const MachineCard: React.FC<MachineCardProps> = ({ machine, onStatusChange, onEd
     <div className={`relative bg-white rounded-2xl border-2 ${statusConfig.bgClass} p-5 transition-all hover:shadow-lg`}>
       {/* 状态指示灯 */}
       <div className="absolute top-4 right-4">
-        <div className={`w-3 h-3 rounded-full ${
-          machine.status === 'running' ? 'bg-emerald-500 animate-pulse' :
-          machine.status === 'threading' ? 'bg-amber-500' :
-          machine.status === 'maintenance' ? 'bg-blue-500' :
-          'bg-slate-400'
-        }`} />
+        <div className={`w-3 h-3 rounded-full ${machine.status === 'running' ? 'bg-emerald-500 animate-pulse' :
+            machine.status === 'threading' ? 'bg-amber-500' :
+              machine.status === 'maintenance' ? 'bg-blue-500' :
+                'bg-slate-400'
+          }`} />
       </div>
 
       {/* 机台名称 */}
@@ -160,11 +158,10 @@ const MachineCard: React.FC<MachineCardProps> = ({ machine, onStatusChange, onEd
           <button
             key={status}
             onClick={() => onStatusChange(status)}
-            className={`flex-1 py-1.5 text-xs rounded-lg font-medium transition-all ${
-              machine.status === status
+            className={`flex-1 py-1.5 text-xs rounded-lg font-medium transition-all ${machine.status === status
                 ? `${STATUS_CONFIG[status].bgClass} ${STATUS_CONFIG[status].textClass}`
                 : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
-            }`}
+              }`}
           >
             {STATUS_CONFIG[status].label}
           </button>
@@ -214,14 +211,16 @@ const EditModal: React.FC<EditModalProps> = ({ machine, onClose, onSave }) => {
       <div className="bg-white rounded-2xl w-full max-w-md m-4 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-slate-800">编辑 {machine.name}</h3>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg">
-            <X className="w-5 h-5 text-slate-500" />
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg" aria-label="关闭" title="关闭">
+            <X className="w-5 h-5 text-slate-500" aria-hidden="true" />
           </button>
         </div>
         <div className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">名称</label>
+            <label htmlFor="machine-name" className="block text-sm font-medium text-slate-700 mb-1">名称</label>
             <input
+              id="machine-name"
+              name="machine-name"
               type="text"
               value={form.name}
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
@@ -230,32 +229,40 @@ const EditModal: React.FC<EditModalProps> = ({ machine, onClose, onSave }) => {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">织机宽度 (m)</label>
+              <label htmlFor="loom-width" className="block text-sm font-medium text-slate-700 mb-1">织机宽度 (m)</label>
               <input
+                id="loom-width"
+                name="loom-width"
                 type="number"
                 step="0.1"
                 value={form.loomWidth}
                 onChange={e => setForm(f => ({ ...f, loomWidth: parseFloat(e.target.value) || 0 }))}
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                aria-describedby="loom-width-desc"
               />
-              <p className="text-xs text-slate-400 mt-1">仅作记录，不参与计算</p>
+              <p id="loom-width-desc" className="text-xs text-slate-400 mt-1">仅作记录，不参与计算</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">织造宽度 (m)</label>
+              <label htmlFor="weaving-width" className="block text-sm font-medium text-slate-700 mb-1">织造宽度 (m)</label>
               <input
+                id="weaving-width"
+                name="weaving-width"
                 type="number"
                 step="0.1"
                 value={form.width}
                 onChange={e => setForm(f => ({ ...f, width: parseFloat(e.target.value) || 0 }))}
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                aria-describedby="weaving-width-desc"
               />
-              <p className="text-xs text-slate-400 mt-1">用于产量计算</p>
+              <p id="weaving-width-desc" className="text-xs text-slate-400 mt-1">用于产量计算</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">速度 (纬/分)</label>
+              <label htmlFor="speed-weft" className="block text-sm font-medium text-slate-700 mb-1">速度 (纬/分)</label>
               <input
+                id="speed-weft"
+                name="speed-weft"
                 type="number"
                 value={form.speedWeftPerMin}
                 onChange={e => setForm(f => ({ ...f, speedWeftPerMin: parseInt(e.target.value) || 0 }))}
@@ -263,8 +270,10 @@ const EditModal: React.FC<EditModalProps> = ({ machine, onClose, onSave }) => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">月目标 (㎡)</label>
+              <label htmlFor="target-output" className="block text-sm font-medium text-slate-700 mb-1">月目标 (㎡)</label>
               <input
+                id="target-output"
+                name="target-output"
                 type="number"
                 value={form.targetOutput}
                 onChange={e => setForm(f => ({ ...f, targetOutput: parseInt(e.target.value) || 0 }))}
@@ -341,15 +350,15 @@ export const MachineManagement: React.FC = () => {
   const handleStatusChange = async (machineId: string, status: Machine['status']) => {
     const machine = machines.find(m => m.id === machineId);
     if (!machine) return;
-    
+
     try {
       // 传递完整的机台数据
-      await updateMachine(machineId, { 
+      await updateMachine(machineId, {
         name: machine.name,
         speedType: machine.speedType,
         width: machine.width,
         targetOutput: machine.targetOutput,
-        status 
+        status
       });
       setMachines(prev => prev.map(m => m.id === machineId ? { ...m, status } : m));
     } catch (err) {

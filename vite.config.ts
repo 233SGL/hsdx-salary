@@ -3,30 +3,34 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
-    const env = loadEnv(mode, '.', '');
-    const devPort = Number(env.VITE_DEV_PORT) || 5173;
-    return {
-      server: {
-        port: devPort,
-        host: '0.0.0.0',
-        strictPort: true,
-        proxy: {
-          '/api': {
-            target: 'http://localhost:3000',
-            changeOrigin: true,
-            secure: false
-          }
-        }
+  const env = loadEnv(mode, '.', '');
+  const devPort = Number(env.VITE_DEV_PORT) || 5173;
+  return {
+    server: {
+      port: devPort,
+      host: '0.0.0.0',
+      strictPort: true,
+      headers: {
+        'X-Content-Type-Options': 'nosniff',
+        'Cache-Control': 'no-cache'
       },
-      plugins: [react()],
-      define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
-      },
-      resolve: {
-        alias: {
-          '@': path.resolve(__dirname, '.'),
+      proxy: {
+        '/api': {
+          target: 'http://localhost:3000',
+          changeOrigin: true,
+          secure: false
         }
       }
-    };
+    },
+    plugins: [react()],
+    define: {
+      'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+    },
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, '.'),
+      }
+    }
+  };
 });

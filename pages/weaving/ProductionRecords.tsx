@@ -7,10 +7,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Search, 
-  Filter,
-  Calendar,
+import {
+  Search,
   Trash2,
   Edit3,
   Loader2,
@@ -59,7 +57,7 @@ interface Product {
 // API 函数
 // ========================================
 
-const API_BASE = 'http://localhost:3000/api/weaving';
+const API_BASE = '/api/weaving';
 
 async function fetchRecords(year: number, month: number): Promise<ProductionRecord[]> {
   const res = await fetch(`${API_BASE}/production-records?year=${year}&month=${month}`);
@@ -102,7 +100,7 @@ export const ProductionRecords: React.FC = () => {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
-  
+
   const [records, setRecords] = useState<ProductionRecord[]>([]);
   const [machines, setMachines] = useState<Machine[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -186,7 +184,7 @@ export const ProductionRecords: React.FC = () => {
   // 保存编辑
   const handleSaveEdit = async () => {
     if (!editingRecord) return;
-    
+
     setSaving(true);
     try {
       const updated = await updateRecord(editingRecord.id, {
@@ -195,9 +193,9 @@ export const ProductionRecords: React.FC = () => {
         isQualified: editForm.qualityGrade === 'A' || editForm.qualityGrade === 'B',
         notes: editForm.notes
       });
-      
+
       // 更新本地记录
-      setRecords(prev => prev.map(r => 
+      setRecords(prev => prev.map(r =>
         r.id === editingRecord.id ? { ...r, ...updated } : r
       ));
       setEditingRecord(null);
@@ -239,15 +237,18 @@ export const ProductionRecords: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-800">生产记录</h1>
           <p className="text-sm text-slate-500 mt-1">查看和管理历史生产数据</p>
         </div>
-        
+
         {/* 月份选择器 - 下拉框样式 */}
         <div className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex items-center gap-2">
-            <label className="text-sm font-semibold text-slate-600">年份</label>
+            <label htmlFor="records-year" className="text-sm font-semibold text-slate-600">年份</label>
             <select
+              id="records-year"
+              name="records-year"
               className="border border-slate-200 rounded-lg py-1.5 px-3 text-sm min-w-[90px] focus:ring-2 focus:ring-blue-500 outline-none"
               value={year}
               onChange={(e) => setYear(parseInt(e.target.value))}
+              aria-label="选择年份"
             >
               {Array.from({ length: 11 }, (_, i) => new Date().getFullYear() - 5 + i).map(y => (
                 <option key={y} value={y}>{y}年</option>
@@ -256,11 +257,14 @@ export const ProductionRecords: React.FC = () => {
           </div>
           <div className="w-px h-6 bg-slate-200"></div>
           <div className="flex items-center gap-2">
-            <label className="text-sm font-semibold text-slate-600">月份</label>
+            <label htmlFor="records-month" className="text-sm font-semibold text-slate-600">月份</label>
             <select
+              id="records-month"
+              name="records-month"
               className="border border-slate-200 rounded-lg py-1.5 px-3 text-sm min-w-[80px] focus:ring-2 focus:ring-blue-500 outline-none"
               value={month}
               onChange={(e) => setMonth(parseInt(e.target.value))}
+              aria-label="选择月份"
             >
               {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
                 <option key={m} value={m}>{m}月</option>
@@ -274,8 +278,9 @@ export const ProductionRecords: React.FC = () => {
             disabled={loading}
             className="p-2 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
             title="刷新数据"
+            aria-label="刷新数据"
           >
-            <RefreshCw className={`w-5 h-5 text-slate-600 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-5 h-5 text-slate-600 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -311,21 +316,29 @@ export const ProductionRecords: React.FC = () => {
         <div className="flex flex-col md:flex-row gap-4">
           {/* 搜索 */}
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" aria-hidden="true" />
+            <label htmlFor="search-notes" className="sr-only">搜索备注</label>
             <input
+              id="search-notes"
+              name="search-notes"
               type="text"
               value={searchText}
               onChange={e => setSearchText(e.target.value)}
               placeholder="搜索备注..."
               className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="搜索备注"
             />
           </div>
-          
+
           {/* 机台筛选 */}
+          <label htmlFor="filter-machine" className="sr-only">筛选机台</label>
           <select
+            id="filter-machine"
+            name="filter-machine"
             value={filterMachine}
             onChange={e => setFilterMachine(e.target.value)}
             className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label="筛选机台"
           >
             <option value="">全部机台</option>
             {machines.map(m => (
@@ -333,11 +346,14 @@ export const ProductionRecords: React.FC = () => {
             ))}
           </select>
 
-          {/* 网种筛选 */}
+          <label htmlFor="filter-product" className="sr-only">筛选网种</label>
           <select
+            id="filter-product"
+            name="filter-product"
             value={filterProduct}
             onChange={e => setFilterProduct(e.target.value)}
             className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label="筛选网种"
           >
             <option value="">全部网种</option>
             {products.map(p => (
@@ -404,13 +420,12 @@ export const ProductionRecords: React.FC = () => {
                       {record.equivalentOutput.toFixed(1)}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-                        record.qualityGrade === 'A' 
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${record.qualityGrade === 'A'
                           ? 'bg-emerald-100 text-emerald-700'
                           : record.qualityGrade === 'B'
-                          ? 'bg-amber-100 text-amber-700'
-                          : 'bg-red-100 text-red-700'
-                      }`}>
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-red-100 text-red-700'
+                        }`}>
                         {record.qualityGrade}
                       </span>
                     </td>
@@ -419,14 +434,14 @@ export const ProductionRecords: React.FC = () => {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1">
-                        <button 
+                        <button
                           onClick={() => handleEdit(record)}
                           className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors"
                           title="编辑"
                         >
                           <Edit3 className="w-4 h-4" />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleDelete(record.id)}
                           className="p-1.5 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-500 transition-colors"
                           title="删除"
@@ -449,14 +464,14 @@ export const ProductionRecords: React.FC = () => {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
               <h3 className="text-lg font-semibold text-slate-800">编辑生产记录</h3>
-              <button 
+              <button
                 onClick={() => setEditingRecord(null)}
                 className="p-1 hover:bg-slate-100 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5 text-slate-500" />
               </button>
             </div>
-            
+
             <div className="p-6 space-y-4">
               {/* 记录信息展示 */}
               <div className="grid grid-cols-2 gap-4 p-3 bg-slate-50 rounded-lg text-sm">
@@ -489,7 +504,7 @@ export const ProductionRecords: React.FC = () => {
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">质量等级</label>
                 <select
@@ -502,7 +517,7 @@ export const ProductionRecords: React.FC = () => {
                   <option value="C">C - 合格品</option>
                 </select>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">备注</label>
                 <textarea
@@ -514,7 +529,7 @@ export const ProductionRecords: React.FC = () => {
                 />
               </div>
             </div>
-            
+
             <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50">
               <button
                 onClick={() => setEditingRecord(null)}

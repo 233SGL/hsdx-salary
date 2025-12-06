@@ -7,16 +7,16 @@
  * 
  * @module pages/weaving/Dashboard
  */
-import React, { useState, useMemo } from 'react';
-import { 
-    HardHat, Activity, TrendingUp, Users, AlertCircle, 
+import React, { useState, useMemo, useEffect } from 'react';
+import {
+    HardHat, Activity, TrendingUp, Users, AlertCircle,
     Settings, Gauge, Factory, Target,
     ArrowUpRight, ArrowDownRight, Minus
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { 
-    WeavingConfig, 
-    WeavingMonthlyData, 
+import {
+    WeavingConfig,
+    WeavingMonthlyData,
     DEFAULT_WEAVING_CONFIG,
     DEFAULT_MACHINES,
     INITIAL_ADMIN_TEAM
@@ -51,16 +51,16 @@ const TrendIndicator = ({ value, benchmark, suffix = '%' }: { value: number; ben
 };
 
 // 进度环组件
-const ProgressRing = ({ 
-    value, 
-    max = 100, 
-    size = 120, 
+const ProgressRing = ({
+    value,
+    max = 100,
+    size = 120,
     strokeWidth = 10,
     color = '#6366f1'
-}: { 
-    value: number; 
-    max?: number; 
-    size?: number; 
+}: {
+    value: number;
+    max?: number;
+    size?: number;
     strokeWidth?: number;
     color?: string;
 }) => {
@@ -101,8 +101,10 @@ const ProgressRing = ({
 };
 
 export const WeavingDashboard = () => {
-    // TODO: 从数据库读取真实数据
-    const [config] = useState<WeavingConfig>(DEFAULT_WEAVING_CONFIG);
+    // 从数据库读取配置
+    const [config, setConfig] = useState<WeavingConfig>(DEFAULT_WEAVING_CONFIG);
+    const [machines, setMachines] = useState<typeof DEFAULT_MACHINES>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [monthlyData] = useState<WeavingMonthlyData>({
         netFormationRate: 75,
         equivalentOutput: 58000,
@@ -111,6 +113,49 @@ export const WeavingDashboard = () => {
         operationRate: 78,
         attendanceDays: 26,
     });
+
+    // 从API加载配置和机台数据
+    useEffect(() => {
+        const loadData = async () => {
+            try {
+                const [configRes, machinesRes] = await Promise.all([
+                    fetch(`${window.location.protocol}//${window.location.hostname}:3000/api/weaving/config`),
+                    fetch(`${window.location.protocol}//${window.location.hostname}:3000/api/weaving/machines`)
+                ]);
+
+                if (configRes.ok) {
+                    const configData = await configRes.json();
+                    if (configData && Object.keys(configData).length > 0) {
+                        setConfig(configData);
+                    }
+                }
+
+                if (machinesRes.ok) {
+                    const machinesData = await machinesRes.json();
+                    if (machinesData && machinesData.length > 0) {
+                        setMachines(machinesData);
+                    }
+                }
+            } catch (error) {
+                console.error('加载数据失败:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        loadData();
+    }, []);
+
+    // 计算总目标产量（各机台独立目标之和，只计算运行中的机台）
+    const totalTargetOutput = useMemo(() => {
+        if (machines.length === 0) {
+            // 回退到配置中的默认值
+            return config.targetEquivalentOutput * monthlyData.activeMachines;
+        }
+        // 使用各机台独立目标，只计算运行中的机台
+        return machines
+            .filter(m => m.status === 'running')
+            .reduce((sum, m) => sum + (m.targetOutput || config.targetEquivalentOutput), 0);
+    }, [machines, config.targetEquivalentOutput, monthlyData.activeMachines]);
 
     // 使用新的计算服务
     const result = useMemo(() => {
@@ -177,9 +222,9 @@ export const WeavingDashboard = () => {
                                     <TrendIndicator value={monthlyData.netFormationRate} benchmark={config.netFormationBenchmark} />
                                 </div>
                             </div>
-                            <ProgressRing 
-                                value={monthlyData.netFormationRate} 
-                                size={70} 
+                            <ProgressRing
+                                value={monthlyData.netFormationRate}
+                                size={70}
                                 strokeWidth={6}
                                 color={monthlyData.netFormationRate >= config.netFormationBenchmark ? '#10b981' : '#f59e0b'}
                             />
@@ -202,9 +247,9 @@ export const WeavingDashboard = () => {
                                     <TrendIndicator value={monthlyData.operationRate} benchmark={config.operationRateBenchmark} />
                                 </div>
                             </div>
-                            <ProgressRing 
-                                value={monthlyData.operationRate} 
-                                size={70} 
+                            <ProgressRing
+                                value={monthlyData.operationRate}
+                                size={70}
                                 strokeWidth={6}
                                 color={monthlyData.operationRate >= config.operationRateBenchmark ? '#10b981' : '#f59e0b'}
                             />
@@ -223,22 +268,21 @@ export const WeavingDashboard = () => {
                         </div>
                         <div className="mt-2 flex items-center justify-between">
                             <span className="text-xs text-slate-400">
-                                目标: {(config.targetEquivalentOutput * monthlyData.activeMachines).toLocaleString()} ㎡
+                                目标: {totalTargetOutput.toLocaleString()} ㎡
                             </span>
-                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                                monthlyData.equivalentOutput >= config.targetEquivalentOutput * monthlyData.activeMachines
-                                    ? 'bg-emerald-100 text-emerald-700'
-                                    : 'bg-amber-100 text-amber-700'
-                            }`}>
-                                {((monthlyData.equivalentOutput / (config.targetEquivalentOutput * monthlyData.activeMachines)) * 100).toFixed(1)}%
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${monthlyData.equivalentOutput >= totalTargetOutput
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-amber-100 text-amber-700'
+                                }`}>
+                                {((monthlyData.equivalentOutput / totalTargetOutput) * 100).toFixed(1)}%
                             </span>
                         </div>
                         {/* 进度条 */}
                         <div className="mt-3 h-2 bg-slate-100 rounded-full overflow-hidden">
-                            <div 
+                            <div
                                 className="h-full bg-gradient-to-r from-violet-400 to-violet-600 rounded-full transition-all duration-500"
-                                style={{ 
-                                    width: `${Math.min(100, (monthlyData.equivalentOutput / (config.targetEquivalentOutput * monthlyData.activeMachines)) * 100)}%` 
+                                style={{
+                                    width: `${Math.min(100, (monthlyData.equivalentOutput / totalTargetOutput) * 100)}%`
                                 }}
                             />
                         </div>
@@ -314,7 +358,7 @@ export const WeavingDashboard = () => {
                                                     <Cell key={`cell-${index}`} fill={entry.color} />
                                                 ))}
                                             </Pie>
-                                            <Tooltip 
+                                            <Tooltip
                                                 formatter={(value: number) => [`${value.toFixed(0)} 分`, '']}
                                                 contentStyle={{
                                                     backgroundColor: 'white',
@@ -379,26 +423,24 @@ export const WeavingDashboard = () => {
                                 {DEFAULT_MACHINES.map((machine, index) => {
                                     const isActive = index < monthlyData.activeMachines;
                                     const status = index < 8 ? 'running' : index < 9 ? 'maintenance' : 'idle';
-                                    
+
                                     return (
-                                        <div 
+                                        <div
                                             key={machine.id}
-                                            className={`relative p-4 rounded-xl border-2 transition-all duration-200 ${
-                                                !isActive 
-                                                    ? 'border-slate-200 bg-slate-50 opacity-50' 
-                                                    : status === 'running'
-                                                        ? 'border-emerald-200 bg-emerald-50 hover:border-emerald-300 hover:shadow-md'
-                                                        : status === 'maintenance'
-                                                            ? 'border-amber-200 bg-amber-50 hover:border-amber-300 hover:shadow-md'
-                                                            : 'border-slate-200 bg-slate-50 hover:border-slate-300 hover:shadow-md'
-                                            }`}
+                                            className={`relative p-4 rounded-xl border-2 transition-all duration-200 ${!isActive
+                                                ? 'border-slate-200 bg-slate-50 opacity-50'
+                                                : status === 'running'
+                                                    ? 'border-emerald-200 bg-emerald-50 hover:border-emerald-300 hover:shadow-md'
+                                                    : status === 'maintenance'
+                                                        ? 'border-amber-200 bg-amber-50 hover:border-amber-300 hover:shadow-md'
+                                                        : 'border-slate-200 bg-slate-50 hover:border-slate-300 hover:shadow-md'
+                                                }`}
                                         >
                                             {/* 状态指示灯 */}
-                                            <div className={`absolute top-2 right-2 w-2.5 h-2.5 rounded-full ${
-                                                !isActive ? 'bg-slate-300' :
+                                            <div className={`absolute top-2 right-2 w-2.5 h-2.5 rounded-full ${!isActive ? 'bg-slate-300' :
                                                 status === 'running' ? 'bg-emerald-500 animate-pulse' :
-                                                status === 'maintenance' ? 'bg-amber-500' : 'bg-slate-300'
-                                            }`}></div>
+                                                    status === 'maintenance' ? 'bg-amber-500' : 'bg-slate-300'
+                                                }`}></div>
 
                                             <div className="text-center">
                                                 <div className="text-lg font-bold text-slate-800">{machine.id}</div>
@@ -407,10 +449,9 @@ export const WeavingDashboard = () => {
                                                 </div>
                                                 {isActive && (
                                                     <div className="mt-2 text-xs">
-                                                        <span className={`font-medium ${
-                                                            status === 'running' ? 'text-emerald-600' :
+                                                        <span className={`font-medium ${status === 'running' ? 'text-emerald-600' :
                                                             status === 'maintenance' ? 'text-amber-600' : 'text-slate-400'
-                                                        }`}>
+                                                            }`}>
                                                             {status === 'running' ? '运行中' : status === 'maintenance' ? '维护中' : '空闲'}
                                                         </span>
                                                     </div>
@@ -480,11 +521,10 @@ export const WeavingDashboard = () => {
                                                 <tr key={person.name} className="hover:bg-slate-50 transition-colors">
                                                     <td className="py-3 px-4 font-medium text-slate-800">{person.name}</td>
                                                     <td className="py-3 px-4">
-                                                        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold ${
-                                                            isLeader 
-                                                                ? 'bg-violet-100 text-violet-800' 
-                                                                : 'bg-slate-100 text-slate-700'
-                                                        }`}>
+                                                        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold ${isLeader
+                                                            ? 'bg-violet-100 text-violet-800'
+                                                            : 'bg-slate-100 text-slate-700'
+                                                            }`}>
                                                             {isLeader ? '班长' : '班员'}
                                                         </span>
                                                     </td>

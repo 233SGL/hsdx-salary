@@ -7,11 +7,10 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
+import {
   Calculator,
   DollarSign,
   Users,
-  Award,
   Loader2,
   Info,
   CheckCircle,
@@ -71,7 +70,7 @@ interface Employee {
 // API 函数
 // ========================================
 
-const API_BASE = 'http://localhost:3000/api/weaving';
+const API_BASE = '/api/weaving';
 
 async function fetchConfig(): Promise<WeavingConfig> {
   const res = await fetch(`${API_BASE}/config`);
@@ -84,24 +83,24 @@ async function fetchMonthlySummary(year: number, month: number): Promise<Monthly
   const res = await fetch(`${API_BASE}/production-records?year=${year}&month=${month}`);
   if (!res.ok) throw new Error('获取生产记录失败');
   const records = await res.json();
-  
+
   // 计算汇总
   const totalNets = records.length;
   const qualifiedNets = records.filter((r: any) => r.isQualified).length;
   const totalArea = records.reduce((sum: number, r: any) => sum + (r.actualArea || 0), 0);
   const totalEquivalent = records.reduce((sum: number, r: any) => sum + (r.equivalentOutput || 0), 0);
   const netFormationRate = totalNets > 0 ? (qualifiedNets / totalNets) * 100 : 0;
-  
+
   // 获取机台状态
   const machinesRes = await fetch(`${API_BASE}/machines`);
   const machines = machinesRes.ok ? await machinesRes.json() : [];
   const activeMachines = machines.filter((m: any) => m.status === 'running').length;
-  
+
   // 获取员工数
   const employeesRes = await fetch(`${API_BASE}/employees`);
   const employees = employeesRes.ok ? await employeesRes.json() : [];
   const actualOperators = employees.filter((e: any) => e.position === 'operator' && e.status === 'active').length;
-  
+
   return {
     totalEquivalent,
     totalArea,
@@ -131,9 +130,9 @@ function calculateBonus(summary: MonthlySummary, config: WeavingConfig): BonusRe
   const outputRate = targetTotalOutput > 0 ? summary.totalEquivalent / targetTotalOutput : 0;
   const actualOperators = summary.actualOperators || config.operatorQuota;
   const staffEfficiency = config.operatorQuota / actualOperators;
-  
-  const qualityBonusCoef = netFormationExcess > 0 
-    ? (netFormationExcess * 100 / 30) * outputRate * staffEfficiency 
+
+  const qualityBonusCoef = netFormationExcess > 0
+    ? (netFormationExcess * 100 / 30) * outputRate * staffEfficiency
     : 0;
   const qualityBonusTotal = qualityBonusCoef * config.avgTargetBonus * config.adminTeamSize;
 
@@ -175,7 +174,7 @@ export const BonusCalculation: React.FC = () => {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
-  
+
   const [config, setConfig] = useState<WeavingConfig | null>(null);
   const [summary, setSummary] = useState<MonthlySummary | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -200,18 +199,18 @@ export const BonusCalculation: React.FC = () => {
   const loadData = useCallback(async (showRefreshing = false) => {
     if (showRefreshing) setRefreshing(true);
     else setLoading(true);
-    
+
     try {
       const [configData, summaryData, employeesData] = await Promise.all([
         fetchConfig(),
         fetchMonthlySummary(year, month),
         fetchEmployees()
       ]);
-      
+
       setConfig(configData);
       setSummary(summaryData);
       setEmployees(employeesData);
-      
+
       if (summaryData) {
         setManualInput(prev => ({
           ...prev,
@@ -294,7 +293,7 @@ export const BonusCalculation: React.FC = () => {
     if (!confirm(`确认保存 ${year}年${month}月 的核算结果？\n\n总奖金池：¥${result.totalBonusPool.toFixed(0)}`)) {
       return;
     }
-    
+
     setConfirming(true);
     try {
       // 保存月度核算数据
@@ -328,9 +327,9 @@ export const BonusCalculation: React.FC = () => {
           }
         })
       });
-      
+
       if (!response.ok) throw new Error('保存失败');
-      
+
       alert(`${year}年${month}月核算结果已保存！`);
     } catch (err) {
       alert('保存失败，请重试');
@@ -347,22 +346,30 @@ export const BonusCalculation: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-800">奖金核算</h1>
           <p className="text-sm text-slate-500 mt-1">管理员班奖金计算与分配</p>
         </div>
-        
+
         {/* 月份选择器 */}
         <div className="flex items-center gap-2">
+          <label htmlFor="bonus-year" className="sr-only">年份</label>
           <select
+            id="bonus-year"
+            name="bonus-year"
             value={year}
             onChange={e => setYear(Number(e.target.value))}
             className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
+            aria-label="选择年份"
           >
             {[2024, 2025, 2026].map(y => (
               <option key={y} value={y}>{y}年</option>
             ))}
           </select>
+          <label htmlFor="bonus-month" className="sr-only">月份</label>
           <select
+            id="bonus-month"
+            name="bonus-month"
             value={month}
             onChange={e => setMonth(Number(e.target.value))}
             className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
+            aria-label="选择月份"
           >
             {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
               <option key={m} value={m}>{m}月</option>
@@ -373,8 +380,9 @@ export const BonusCalculation: React.FC = () => {
             disabled={refreshing}
             className="p-2 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
             title="刷新数据（从生产记录同步）"
+            aria-label="刷新数据"
           >
-            <RefreshCw className={`w-5 h-5 text-slate-600 ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-5 h-5 text-slate-600 ${refreshing ? 'animate-spin' : ''}`} aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -518,15 +526,14 @@ export const BonusCalculation: React.FC = () => {
                 const bonus = isLeader ? result.leaderBonus : result.memberBonus;
                 const basePay = emp.baseSalary;
                 const totalWage = basePay + bonus;
-                
+
                 return (
                   <div key={emp.id} className="p-4 bg-slate-50 rounded-xl">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-slate-800">{emp.name}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          isLeader ? 'bg-purple-100 text-purple-700' : 'bg-slate-200 text-slate-600'
-                        }`}>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${isLeader ? 'bg-purple-100 text-purple-700' : 'bg-slate-200 text-slate-600'
+                          }`}>
                           {isLeader ? '班长' : '班员'}
                         </span>
                       </div>
@@ -573,7 +580,7 @@ export const BonusCalculation: React.FC = () => {
             )}
 
             {/* 确认按钮 */}
-            <button 
+            <button
               onClick={handleConfirm}
               disabled={confirming}
               className="w-full mt-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-xl flex items-center justify-center gap-2 hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"

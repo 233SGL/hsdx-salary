@@ -37,7 +37,7 @@ interface Product {
 // API 函数
 // ========================================
 
-const API_BASE = 'http://localhost:3000/api/weaving';
+const API_BASE = '/api/weaving';
 
 async function fetchProducts(): Promise<Product[]> {
   const res = await fetch(`${API_BASE}/products`);

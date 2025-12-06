@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
+import {
   TrendingUp,
   TrendingDown,
   Target,
@@ -47,23 +47,23 @@ interface MachineStats {
 // API 函数
 // ========================================
 
-const API_BASE = 'http://localhost:3000/api/weaving';
+const API_BASE = '/api/weaving';
 
 async function fetchMonthlySummary(year: number, month: number): Promise<MonthlySummary> {
   // 从生产记录计算汇总数据
   const recordsRes = await fetch(`${API_BASE}/production-records?year=${year}&month=${month}`);
   if (!recordsRes.ok) throw new Error('获取生产记录失败');
   const records = await recordsRes.json();
-  
+
   // 获取机台数据
   const machinesRes = await fetch(`${API_BASE}/machines`);
   const machines = machinesRes.ok ? await machinesRes.json() : [];
   const activeMachines = machines.filter((m: any) => m.status === 'running').length;
-  
+
   // 获取配置
   const configRes = await fetch(`${API_BASE}/config`);
   const config = configRes.ok ? await configRes.json() : { targetEquivalentOutput: 6450 };
-  
+
   // 计算汇总
   const totalNets = records.length;
   const qualifiedNets = records.filter((r: any) => r.isQualified).length;
@@ -72,7 +72,7 @@ async function fetchMonthlySummary(year: number, month: number): Promise<Monthly
   const totalEquivalent = records.reduce((sum: number, r: any) => sum + (r.equivalentOutput || 0), 0);
   const netFormationRate = totalNets > 0 ? (qualifiedNets / totalNets) * 100 : 0;
   const targetEquivalent = (config.targetEquivalentOutput || 6450) * activeMachines;
-  
+
   return {
     totalNets,
     totalLength,
@@ -91,17 +91,17 @@ async function fetchMachineStats(year: number, month: number): Promise<MachineSt
   const recordsRes = await fetch(`${API_BASE}/production-records?year=${year}&month=${month}`);
   if (!recordsRes.ok) return [];
   const records = await recordsRes.json();
-  
+
   const machinesRes = await fetch(`${API_BASE}/machines`);
   const machines = machinesRes.ok ? await machinesRes.json() : [];
-  
+
   // 按机台分组
   const statsMap = new Map<string, MachineStats>();
-  
+
   for (const record of records) {
     const machineId = record.machineId;
     const machine = machines.find((m: any) => m.id === machineId);
-    
+
     if (!statsMap.has(machineId)) {
       statsMap.set(machineId, {
         machineId,
@@ -112,14 +112,14 @@ async function fetchMachineStats(year: number, month: number): Promise<MachineSt
         totalEquivalent: 0
       });
     }
-    
+
     const stat = statsMap.get(machineId)!;
     stat.netCount++;
     stat.totalLength += record.length || 0;
     stat.totalArea += record.actualArea || 0;
     stat.totalEquivalent += record.equivalentOutput || 0;
   }
-  
+
   // 转为数组并排序
   return Array.from(statsMap.values()).sort((a, b) => b.totalEquivalent - a.totalEquivalent);
 }
@@ -155,11 +155,10 @@ const KPICard: React.FC<KPICardProps> = ({ title, value, unit, target, icon, col
           {icon}
         </div>
         {trend && (
-          <div className={`flex items-center gap-1 text-sm ${
-            trend === 'up' ? 'text-emerald-600' : trend === 'down' ? 'text-red-500' : 'text-slate-400'
-          }`}>
-            {trend === 'up' ? <TrendingUp className="w-4 h-4" /> : 
-             trend === 'down' ? <TrendingDown className="w-4 h-4" /> : null}
+          <div className={`flex items-center gap-1 text-sm ${trend === 'up' ? 'text-emerald-600' : trend === 'down' ? 'text-red-500' : 'text-slate-400'
+            }`}>
+            {trend === 'up' ? <TrendingUp className="w-4 h-4" /> :
+              trend === 'down' ? <TrendingDown className="w-4 h-4" /> : null}
           </div>
         )}
       </div>
@@ -175,7 +174,7 @@ const KPICard: React.FC<KPICardProps> = ({ title, value, unit, target, icon, col
             <span>{progress.toFixed(1)}%</span>
           </div>
           <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-            <div 
+            <div
               className={`h-full bg-gradient-to-r ${colorClasses[color]} rounded-full transition-all duration-500`}
               style={{ width: `${Math.min(progress, 100)}%` }}
             />
@@ -194,7 +193,7 @@ export const MonthlySummary: React.FC = () => {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
-  
+
   const [summary, setSummary] = useState<MonthlySummary | null>(null);
   const [machineStats, setMachineStats] = useState<MachineStats[]>([]);
   const [loading, setLoading] = useState(true);
@@ -204,7 +203,7 @@ export const MonthlySummary: React.FC = () => {
   const loadData = useCallback(async (showRefreshing = false) => {
     if (showRefreshing) setRefreshing(true);
     else setLoading(true);
-    
+
     try {
       const [summaryData, statsData] = await Promise.all([
         fetchMonthlySummary(year, month),
@@ -271,15 +270,18 @@ export const MonthlySummary: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-800">月度汇总</h1>
           <p className="text-sm text-slate-500 mt-1">织造工段 KPI 概览</p>
         </div>
-        
+
         {/* 月份选择器 - 下拉框样式 */}
         <div className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex items-center gap-2">
-            <label className="text-sm font-semibold text-slate-600">年份</label>
+            <label htmlFor="summary-year" className="text-sm font-semibold text-slate-600">年份</label>
             <select
+              id="summary-year"
+              name="summary-year"
               className="border border-slate-200 rounded-lg py-1.5 px-3 text-sm min-w-[90px] focus:ring-2 focus:ring-blue-500 outline-none"
               value={year}
               onChange={(e) => setYear(parseInt(e.target.value))}
+              aria-label="选择年份"
             >
               {Array.from({ length: 11 }, (_, i) => new Date().getFullYear() - 5 + i).map(y => (
                 <option key={y} value={y}>{y}年</option>
@@ -288,11 +290,14 @@ export const MonthlySummary: React.FC = () => {
           </div>
           <div className="w-px h-6 bg-slate-200"></div>
           <div className="flex items-center gap-2">
-            <label className="text-sm font-semibold text-slate-600">月份</label>
+            <label htmlFor="summary-month" className="text-sm font-semibold text-slate-600">月份</label>
             <select
+              id="summary-month"
+              name="summary-month"
               className="border border-slate-200 rounded-lg py-1.5 px-3 text-sm min-w-[80px] focus:ring-2 focus:ring-blue-500 outline-none"
               value={month}
               onChange={(e) => setMonth(parseInt(e.target.value))}
+              aria-label="选择月份"
             >
               {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
                 <option key={m} value={m}>{m}月</option>
@@ -305,8 +310,9 @@ export const MonthlySummary: React.FC = () => {
             disabled={refreshing}
             className="p-2 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
             title="刷新数据"
+            aria-label="刷新数据"
           >
-            <RefreshCw className={`w-5 h-5 text-slate-600 ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-5 h-5 text-slate-600 ${refreshing ? 'animate-spin' : ''}`} aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -394,12 +400,11 @@ export const MonthlySummary: React.FC = () => {
                   const percent = maxEquivalent > 0 ? (stat.totalEquivalent / maxEquivalent) * 100 : 0;
                   return (
                     <div key={stat.machineId} className="flex items-center gap-4">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                        index === 0 ? 'bg-amber-100 text-amber-700' :
-                        index === 1 ? 'bg-slate-200 text-slate-600' :
-                        index === 2 ? 'bg-orange-100 text-orange-700' :
-                        'bg-slate-100 text-slate-500'
-                      }`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${index === 0 ? 'bg-amber-100 text-amber-700' :
+                          index === 1 ? 'bg-slate-200 text-slate-600' :
+                            index === 2 ? 'bg-orange-100 text-orange-700' :
+                              'bg-slate-100 text-slate-500'
+                        }`}>
                         {index + 1}
                       </div>
                       <div className="flex-1">
@@ -410,7 +415,7 @@ export const MonthlySummary: React.FC = () => {
                           </span>
                         </div>
                         <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                          <div 
+                          <div
                             className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full"
                             style={{ width: `${percent}%` }}
                           />

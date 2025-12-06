@@ -6,10 +6,10 @@
  * 提供织造工段相关的前端 API 调用方法
  */
 
-import { WeavingEmployee, WeavingMachine, WeavingConfig, WeavingMonthlyData } from '../weavingTypes';
+import { WeavingEmployee, WeavingMachine, WeavingConfig } from '../weavingTypes';
 
 // API 基础路径
-const API_BASE = 'http://localhost:3000/api/weaving';
+const API_BASE = '/api/weaving';
 
 // ========================================
 // 员工管理 API

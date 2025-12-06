@@ -30,23 +30,9 @@ const resolveApiBase = (): string => {
   const envBase = import.meta.env?.VITE_API_BASE?.replace(/\/$/, '');
   if (envBase) return envBase;
 
-  // 浏览器环境：根据当前页面URL推断
-  if (typeof window !== 'undefined') {
-    const { protocol, hostname, port } = window.location;
-
-    // 标准HTTP/HTTPS端口，API在同域
-    if (!port || port === '80' || port === '443') {
-      return `${protocol}//${hostname}/api`;
-    }
-
-    // 开发环境端口：前端dev server端口映射到后端3000端口
-    const devPorts = new Set(['3001', '5173', '4173', '5174']);
-    const targetPort = devPorts.has(port) ? '3000' : port;
-    return `${protocol}//${hostname}:${targetPort}/api`;
-  }
-
-  // 默认值：本地开发环境
-  return 'http://localhost:3000/api';
+  // 开发环境使用相对路径，通过 Vite 代理
+  // 生产环境同样使用相对路径
+  return '/api';
 };
 
 /** 全局API基础地址 */
@@ -86,50 +72,50 @@ const INITIAL_EMPLOYEES: Employee[] = [
  * 包含不同角色的默认用户配置
  */
 const INITIAL_USERS: SystemUser[] = [
-  { 
-      id: 'u1', username: 'admin', displayName: '系统管理员', role: UserRole.ADMIN, pinCode: '1234', isSystem: true,
-      scopes: ['all'],
-      permissions: [
-          'VIEW_DASHBOARD', 'VIEW_PRODUCTION', 'VIEW_ATTENDANCE', 'VIEW_CALCULATOR', 'VIEW_SIMULATION', 'VIEW_EMPLOYEES',
-          'EDIT_YIELD', 'EDIT_UNIT_PRICE', 'EDIT_KPI', 'EDIT_FIXED_PACK', 'EDIT_HOURS', 
-          'EDIT_BASE_SCORE', 'EDIT_WEIGHTS', 'APPLY_SIMULATION', 
-          'VIEW_SENSITIVE', 'MANAGE_ANNOUNCEMENTS', 'MANAGE_EMPLOYEES', 'MANAGE_SYSTEM'
-      ]
+  {
+    id: 'u1', username: 'admin', displayName: '系统管理员', role: UserRole.ADMIN, pinCode: '1234', isSystem: true,
+    scopes: ['all'],
+    permissions: [
+      'VIEW_DASHBOARD', 'VIEW_PRODUCTION', 'VIEW_ATTENDANCE', 'VIEW_CALCULATOR', 'VIEW_SIMULATION', 'VIEW_EMPLOYEES',
+      'EDIT_YIELD', 'EDIT_UNIT_PRICE', 'EDIT_KPI', 'EDIT_FIXED_PACK', 'EDIT_HOURS',
+      'EDIT_BASE_SCORE', 'EDIT_WEIGHTS', 'APPLY_SIMULATION',
+      'VIEW_SENSITIVE', 'MANAGE_ANNOUNCEMENTS', 'MANAGE_EMPLOYEES', 'MANAGE_SYSTEM'
+    ]
   },
-  { 
-      id: 'u2', username: 'vp_prod', displayName: '生产副总', role: UserRole.VP_PRODUCTION, pinCode: '1234', isSystem: true,
-      scopes: ['styling', 'weaving'],
-      permissions: [
-          'VIEW_DASHBOARD', 'VIEW_PRODUCTION', 'VIEW_ATTENDANCE', 'VIEW_CALCULATOR', 'VIEW_SIMULATION', 'VIEW_EMPLOYEES',
-          'EDIT_YIELD', 'EDIT_UNIT_PRICE', 'EDIT_KPI', 'EDIT_FIXED_PACK', 'EDIT_WEIGHTS', 
-          'APPLY_SIMULATION', 'VIEW_SENSITIVE', 'EDIT_HOURS', 'MANAGE_ANNOUNCEMENTS'
-      ]
+  {
+    id: 'u2', username: 'vp_prod', displayName: '生产副总', role: UserRole.VP_PRODUCTION, pinCode: '1234', isSystem: true,
+    scopes: ['styling', 'weaving'],
+    permissions: [
+      'VIEW_DASHBOARD', 'VIEW_PRODUCTION', 'VIEW_ATTENDANCE', 'VIEW_CALCULATOR', 'VIEW_SIMULATION', 'VIEW_EMPLOYEES',
+      'EDIT_YIELD', 'EDIT_UNIT_PRICE', 'EDIT_KPI', 'EDIT_FIXED_PACK', 'EDIT_WEIGHTS',
+      'APPLY_SIMULATION', 'VIEW_SENSITIVE', 'EDIT_HOURS', 'MANAGE_ANNOUNCEMENTS'
+    ]
   },
-  { 
-      id: 'u4', username: 'schedule', displayName: '调度中心', role: UserRole.SCHEDULING, pinCode: '1234', isSystem: true,
-      scopes: ['styling'], 
-      permissions: ['VIEW_DASHBOARD', 'VIEW_PRODUCTION', 'EDIT_YIELD']
+  {
+    id: 'u4', username: 'schedule', displayName: '调度中心', role: UserRole.SCHEDULING, pinCode: '1234', isSystem: true,
+    scopes: ['styling'],
+    permissions: ['VIEW_DASHBOARD', 'VIEW_PRODUCTION', 'EDIT_YIELD']
   },
-  { 
-      id: 'u5', username: 'sec_head', displayName: '工段负责人', role: UserRole.SECTION_HEAD, pinCode: '1234', isSystem: true,
-      scopes: ['styling'],
-      permissions: [
-          'VIEW_DASHBOARD', 'VIEW_ATTENDANCE', 'VIEW_EMPLOYEES', 'VIEW_CALCULATOR',
-          'EDIT_HOURS', 'EDIT_BASE_SCORE'
-      ]
+  {
+    id: 'u5', username: 'sec_head', displayName: '工段负责人', role: UserRole.SECTION_HEAD, pinCode: '1234', isSystem: true,
+    scopes: ['styling'],
+    permissions: [
+      'VIEW_DASHBOARD', 'VIEW_ATTENDANCE', 'VIEW_EMPLOYEES', 'VIEW_CALCULATOR',
+      'EDIT_HOURS', 'EDIT_BASE_SCORE'
+    ]
   },
-  { 
-      id: 'u6', username: 'gen_manager', displayName: '总经理', role: UserRole.GENERAL_MANAGER, pinCode: '1234', isSystem: true,
-      scopes: ['all'],
-      permissions: [
-          'VIEW_DASHBOARD', 'VIEW_PRODUCTION', 'VIEW_ATTENDANCE', 'VIEW_CALCULATOR', 'VIEW_SIMULATION', 'VIEW_EMPLOYEES',
-          'VIEW_SENSITIVE', 'EDIT_WEIGHTS', 'MANAGE_ANNOUNCEMENTS', 'MANAGE_EMPLOYEES', 'MANAGE_SYSTEM'
-      ] 
+  {
+    id: 'u6', username: 'gen_manager', displayName: '总经理', role: UserRole.GENERAL_MANAGER, pinCode: '1234', isSystem: true,
+    scopes: ['all'],
+    permissions: [
+      'VIEW_DASHBOARD', 'VIEW_PRODUCTION', 'VIEW_ATTENDANCE', 'VIEW_CALCULATOR', 'VIEW_SIMULATION', 'VIEW_EMPLOYEES',
+      'VIEW_SENSITIVE', 'EDIT_WEIGHTS', 'MANAGE_ANNOUNCEMENTS', 'MANAGE_EMPLOYEES', 'MANAGE_SYSTEM'
+    ]
   },
 ];
 
 const DEFAULT_SETTINGS: GlobalSettings = {
-    announcement: "安全生产，重在预防。进入车间请务必穿戴好劳保用品。本月产量冲刺目标：20000m²。"
+  announcement: "安全生产，重在预防。进入车间请务必穿戴好劳保用品。本月产量冲刺目标：20000m²。"
 };
 
 /**
@@ -143,7 +129,7 @@ export class DatabaseService {
   public isConnected: boolean = false;
 
   /** 私有构造函数，防止外部实例化 */
-  private constructor() {}
+  private constructor() { }
 
   /**
    * 获取数据库服务单例实例
@@ -163,7 +149,7 @@ export class DatabaseService {
    */
   public async connect(): Promise<boolean> {
     if (this.isConnected) return true;
-    
+
     try {
       const response = await fetch(`${API_BASE}/health`);
       const data = await response.json();
@@ -178,52 +164,52 @@ export class DatabaseService {
 
   // === Settings ===
   public async getSettings(): Promise<GlobalSettings> {
-      await this.ensureConnection();
-      try {
-        const response = await fetch(`${API_BASE}/settings`);
-        if (!response.ok) throw new Error('Failed to fetch settings');
-        const data = await response.json();
-        return {
-          announcement: data?.announcement || ''
-        };
-      } catch (error) {
-        console.error('Error fetching settings:', error);
-        return DEFAULT_SETTINGS;
-      }
+    await this.ensureConnection();
+    try {
+      const response = await fetch(`${API_BASE}/settings`);
+      if (!response.ok) throw new Error('Failed to fetch settings');
+      const data = await response.json();
+      return {
+        announcement: data?.announcement || ''
+      };
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+      return DEFAULT_SETTINGS;
+    }
   }
 
   public async saveSettings(settings: GlobalSettings): Promise<void> {
-      await this.ensureConnection();
-      const response = await fetch(`${API_BASE}/settings`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings)
-      });
-      if (!response.ok) throw new Error('Failed to save settings');
+    await this.ensureConnection();
+    const response = await fetch(`${API_BASE}/settings`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings)
+    });
+    if (!response.ok) throw new Error('Failed to save settings');
   }
 
   // === Workshops ===
   public async getWorkshops(): Promise<Workshop[]> {
-      await this.ensureConnection();
-      try {
-        const response = await fetch(`${API_BASE}/workshops`);
-        if (!response.ok) throw new Error('Failed to fetch workshops');
-        const data = await response.json();
-        return data.map((ws: any) => ({
-          id: ws.id,
-          name: ws.name,
-          code: ws.code,
-          departments: ws.departments || []
-        }));
-      } catch (error) {
-        console.error('Error fetching workshops:', error);
-        return INITIAL_WORKSHOPS;
-      }
+    await this.ensureConnection();
+    try {
+      const response = await fetch(`${API_BASE}/workshops`);
+      if (!response.ok) throw new Error('Failed to fetch workshops');
+      const data = await response.json();
+      return data.map((ws: any) => ({
+        id: ws.id,
+        name: ws.name,
+        code: ws.code,
+        departments: ws.departments || []
+      }));
+    } catch (error) {
+      console.error('Error fetching workshops:', error);
+      return INITIAL_WORKSHOPS;
+    }
   }
 
   public async saveWorkshops(workshops: Workshop[]): Promise<void> {
-      await this.ensureConnection();
-      console.warn('saveWorkshops not yet implemented in backend');
+    await this.ensureConnection();
+    console.warn('saveWorkshops not yet implemented in backend');
   }
 
   // === System Users ===
@@ -417,7 +403,7 @@ export class DatabaseService {
       phone: updatedEmp.phone,
       expectedDailyHours: updatedEmp.expectedDailyHours
     };
-    
+
     const response = await fetch(`${API_BASE}/employees/${updatedEmp.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -509,7 +495,7 @@ export class DatabaseService {
         this.getSystemUsers(),
         this.getSettings()
       ]);
-      
+
       const exportData = {
         employees,
         workshops,
@@ -517,7 +503,7 @@ export class DatabaseService {
         settings,
         exportDate: new Date().toISOString()
       };
-      
+
       return JSON.stringify(exportData, null, 2);
     } catch (error) {
       console.error('Export failed:', error);
@@ -536,6 +522,59 @@ export class DatabaseService {
       console.error("Import failed", e);
       return false;
     }
+  }
+
+  // ========================================
+  // 织造工段 API
+  // ========================================
+
+  /** 获取织造工段配置 */
+  public async getWeavingConfig(): Promise<any> {
+    await this.ensureConnection();
+    try {
+      const response = await fetch(`${API_BASE}/weaving/config`);
+      if (!response.ok) throw new Error('Failed to fetch weaving config');
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching weaving config:', error);
+      return null;
+    }
+  }
+
+  /** 保存织造工段配置 */
+  public async saveWeavingConfig(config: any): Promise<void> {
+    await this.ensureConnection();
+    const response = await fetch(`${API_BASE}/weaving/config`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config)
+    });
+    if (!response.ok) throw new Error('Failed to save weaving config');
+  }
+
+  /** 获取所有机台 */
+  public async getWeavingMachines(): Promise<any[]> {
+    await this.ensureConnection();
+    try {
+      const response = await fetch(`${API_BASE}/weaving/machines`);
+      if (!response.ok) throw new Error('Failed to fetch machines');
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching machines:', error);
+      return [];
+    }
+  }
+
+  /** 更新机台信息（包括目标产量） */
+  public async updateWeavingMachine(id: string, data: any): Promise<any> {
+    await this.ensureConnection();
+    const response = await fetch(`${API_BASE}/weaving/machines/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) throw new Error('Failed to update machine');
+    return await response.json();
   }
 
   private async ensureConnection() {
