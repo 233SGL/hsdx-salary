@@ -771,28 +771,54 @@ app.post('/api/weaving/production-records', async (req, res) => {
 
 /**
  * PUT /api/weaving/production-records/:id
- * 更新生产记录
+ * 更新生产记录（支持部分更新）
  */
 app.put('/api/weaving/production-records/:id', async (req, res) => {
   try {
-    const {
-      productionDate, machineId, productId, length,
-      startTime, endTime, qualityGrade, isQualified, notes
-    } = req.body;
+    const { length, qualityGrade, isQualified, notes } = req.body;
     
-    const date = new Date(productionDate);
-    const year = date.getFullYear();
-    const month = date.getMonth() + 1;
+    // 获取当前记录
+    const { rows: current } = await pool.query(
+      'SELECT * FROM weaving_production_records WHERE id = $1',
+      [req.params.id]
+    );
+    if (!current[0]) return res.status(404).json({ error: '记录不存在' });
     
+    // 合并更新字段
+    const record = current[0];
+    const newLength = length !== undefined ? length : record.length;
+    const newQualityGrade = qualityGrade !== undefined ? qualityGrade : record.quality_grade;
+    const newIsQualified = isQualified !== undefined ? isQualified : record.is_qualified;
+    const newNotes = notes !== undefined ? notes : record.notes;
+    
+    // 更新记录（触发器会重新计算等效产量）
     const { rows } = await pool.query(
       `UPDATE weaving_production_records SET
-        year = $2, month = $3, production_date = $4, machine_id = $5, product_id = $6,
-        length = $7, start_time = $8, end_time = $9, quality_grade = $10, is_qualified = $11, notes = $12
+        length = $2, quality_grade = $3, is_qualified = $4, notes = $5
        WHERE id = $1 RETURNING *`,
-      [req.params.id, year, month, productionDate, machineId, productId, length, startTime || null, endTime || null, qualityGrade, isQualified, notes]
+      [req.params.id, newLength, newQualityGrade, newIsQualified, newNotes]
     );
-    if (!rows[0]) return res.status(404).json({ error: '记录不存在' });
-    res.json(rows[0]);
+    
+    // 转换字段名为驼峰
+    const result = {
+      id: rows[0].id,
+      year: rows[0].year,
+      month: rows[0].month,
+      productionDate: rows[0].production_date,
+      machineId: rows[0].machine_id,
+      productId: rows[0].product_id,
+      length: parseFloat(rows[0].length),
+      machineWidth: parseFloat(rows[0].machine_width),
+      weftDensity: parseFloat(rows[0].weft_density),
+      actualArea: parseFloat(rows[0].actual_area),
+      equivalentOutput: parseFloat(rows[0].equivalent_output),
+      qualityGrade: rows[0].quality_grade,
+      isQualified: rows[0].is_qualified,
+      notes: rows[0].notes,
+      createdAt: rows[0].created_at
+    };
+    
+    res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

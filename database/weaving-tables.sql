@@ -119,6 +119,39 @@ CREATE TABLE IF NOT EXISTS weaving_monthly_summary (
 );
 
 -- ========================================
+-- 5.1 织造工段月度核算数据表
+-- ========================================
+-- 用于保存资金核算确认后的数据快照
+CREATE TABLE IF NOT EXISTS weaving_monthly_data (
+    id SERIAL PRIMARY KEY,
+    year INTEGER NOT NULL,
+    month INTEGER NOT NULL,
+    -- 汇总数据
+    total_area NUMERIC(12,2) DEFAULT 0,           -- 总实际面积(㎡)
+    equivalent_output NUMERIC(12,2) DEFAULT 0,    -- 总等效产量(㎡)
+    total_nets INTEGER DEFAULT 0,                  -- 总网数
+    qualified_nets INTEGER DEFAULT 0,              -- 合格网数
+    -- 奖金计算数据
+    total_bonus NUMERIC(12,2) DEFAULT 0,          -- 总奖金(元)
+    per_sqm_bonus NUMERIC(10,4) DEFAULT 0,        -- 每平米奖金(元)
+    admin_team_bonus NUMERIC(12,2) DEFAULT 0,     -- 管理组奖金(元)
+    -- 确认状态
+    is_confirmed BOOLEAN DEFAULT FALSE,
+    confirmed_at TIMESTAMP WITH TIME ZONE,
+    confirmed_by VARCHAR(100),
+    -- 备注
+    notes TEXT,
+    -- 时间戳
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    -- 唯一约束：每月只有一条核算记录
+    UNIQUE(year, month)
+);
+
+-- 创建索引
+CREATE INDEX IF NOT EXISTS idx_weaving_monthly_data_year_month ON weaving_monthly_data(year, month);
+
+-- ========================================
 -- 6. 生产记录表（核心：每张网一条记录）
 -- ========================================
 -- 每完成一张网，记录一次
@@ -257,6 +290,7 @@ COMMENT ON TABLE weaving_machines IS '织造工段机台表 - 织机固有属性
 COMMENT ON TABLE weaving_products IS '网种/产品表 - 不同纬密的产品';
 COMMENT ON TABLE weaving_config IS '织造工段配置表';
 COMMENT ON TABLE weaving_monthly_summary IS '织造工段月度汇总表';
+COMMENT ON TABLE weaving_monthly_data IS '织造工段月度核算数据表 - 资金核算确认后的数据快照';
 COMMENT ON TABLE weaving_production_records IS '生产记录表 - 每张网一条记录';
 
 COMMENT ON COLUMN weaving_employees.position IS '岗位类型: admin_leader=管理员班长, admin_member=管理员班员, operator=操作工';
@@ -265,6 +299,12 @@ COMMENT ON COLUMN weaving_machines.speed_type IS '速度类型: H2=高速(41纬/
 COMMENT ON COLUMN weaving_products.weft_density IS '纬密(根/厘米)，产品固有属性';
 COMMENT ON COLUMN weaving_production_records.length IS '织造长度(米)，由订单决定';
 COMMENT ON COLUMN weaving_production_records.equivalent_output IS '等效产量 = 面积 × 产量系数 × 宽度系数 × 速度系数';
+COMMENT ON COLUMN weaving_monthly_data.total_area IS '总实际面积（平方米）';
+COMMENT ON COLUMN weaving_monthly_data.equivalent_output IS '总等效产量（平方米）';
+COMMENT ON COLUMN weaving_monthly_data.total_bonus IS '总奖金（元）';
+COMMENT ON COLUMN weaving_monthly_data.per_sqm_bonus IS '每平方米奖金（元）';
+COMMENT ON COLUMN weaving_monthly_data.admin_team_bonus IS '管理组奖金（元）';
+COMMENT ON COLUMN weaving_monthly_data.is_confirmed IS '是否已确认核算';
 
 -- ========================================
 -- 视图：按月汇总生产数据

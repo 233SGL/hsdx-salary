@@ -6,7 +6,7 @@
  * 成网率奖 + 运转率奖 → 二次分配
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Calculator,
   DollarSign,
@@ -14,7 +14,8 @@ import {
   Award,
   Loader2,
   Info,
-  CheckCircle
+  CheckCircle,
+  RefreshCw
 } from 'lucide-react';
 
 // ========================================
@@ -37,11 +38,13 @@ interface WeavingConfig {
 
 interface MonthlySummary {
   totalEquivalent: number;
+  totalArea: number;
+  totalNets: number;
+  qualifiedNets: number;
   netFormationRate: number;
   operationRate: number;
   activeMachines: number;
   actualOperators: number;
-  attendanceDays: number;
 }
 
 interface BonusResult {
@@ -77,9 +80,38 @@ async function fetchConfig(): Promise<WeavingConfig> {
 }
 
 async function fetchMonthlySummary(year: number, month: number): Promise<MonthlySummary> {
-  const res = await fetch(`${API_BASE}/summary?year=${year}&month=${month}`);
-  if (!res.ok) throw new Error('获取汇总失败');
-  return res.json();
+  // 从生产记录计算汇总数据
+  const res = await fetch(`${API_BASE}/production-records?year=${year}&month=${month}`);
+  if (!res.ok) throw new Error('获取生产记录失败');
+  const records = await res.json();
+  
+  // 计算汇总
+  const totalNets = records.length;
+  const qualifiedNets = records.filter((r: any) => r.isQualified).length;
+  const totalArea = records.reduce((sum: number, r: any) => sum + (r.actualArea || 0), 0);
+  const totalEquivalent = records.reduce((sum: number, r: any) => sum + (r.equivalentOutput || 0), 0);
+  const netFormationRate = totalNets > 0 ? (qualifiedNets / totalNets) * 100 : 0;
+  
+  // 获取机台状态
+  const machinesRes = await fetch(`${API_BASE}/machines`);
+  const machines = machinesRes.ok ? await machinesRes.json() : [];
+  const activeMachines = machines.filter((m: any) => m.status === 'running').length;
+  
+  // 获取员工数
+  const employeesRes = await fetch(`${API_BASE}/employees`);
+  const employees = employeesRes.ok ? await employeesRes.json() : [];
+  const actualOperators = employees.filter((e: any) => e.position === 'operator' && e.status === 'active').length;
+  
+  return {
+    totalEquivalent,
+    totalArea,
+    totalNets,
+    qualifiedNets,
+    netFormationRate,
+    operationRate: 78, // 运转率需要额外计算或手动输入
+    activeMachines,
+    actualOperators: actualOperators || 17
+  };
 }
 
 async function fetchEmployees(): Promise<Employee[]> {
@@ -118,12 +150,9 @@ function calculateBonus(summary: MonthlySummary, config: WeavingConfig): BonusRe
   const leaderBonus = totalBonusPool / totalCoef * config.leaderCoef;
   const memberBonus = totalBonusPool / totalCoef * config.memberCoef;
 
-  // 应发工资
-  const attendanceRate = Math.min((summary.attendanceDays || 26) / 26, 1);
-  const leaderBasePay = config.leaderBaseSalary * attendanceRate;
-  const memberBasePay = config.memberBaseSalary * attendanceRate;
-  const leaderTotalWage = leaderBasePay + leaderBonus;
-  const memberTotalWage = memberBasePay + memberBonus;
+  // 应发工资（基本工资 + 奖金）
+  const leaderTotalWage = config.leaderBaseSalary + leaderBonus;
+  const memberTotalWage = config.memberBaseSalary + memberBonus;
 
   return {
     qualityBonusCoef,
@@ -151,43 +180,55 @@ export const BonusCalculation: React.FC = () => {
   const [summary, setSummary] = useState<MonthlySummary | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
+  const [confirming, setConfirming] = useState(false);
+
+  const [refreshing, setRefreshing] = useState(false);
 
   // 手动输入（用于 API 未返回时）
   const [manualInput, setManualInput] = useState({
     netFormationRate: 72,
     operationRate: 78,
     totalEquivalent: 65000,
+    totalArea: 0,
+    totalNets: 0,
+    qualifiedNets: 0,
     activeMachines: 10,
-    actualOperators: 17,
-    attendanceDays: 26
+    actualOperators: 17
   });
 
-  // 加载数据
-  useEffect(() => {
-    setLoading(true);
-    Promise.all([
-      fetchConfig(),
-      fetchMonthlySummary(year, month),
-      fetchEmployees()
-    ])
-      .then(([configData, summaryData, employeesData]) => {
-        setConfig(configData);
-        setSummary(summaryData);
-        setEmployees(employeesData);
-        if (summaryData) {
-          setManualInput({
-            netFormationRate: summaryData.netFormationRate || 72,
-            operationRate: summaryData.operationRate || 78,
-            totalEquivalent: summaryData.totalEquivalent || 65000,
-            activeMachines: summaryData.activeMachines || 10,
-            actualOperators: summaryData.actualOperators || 17,
-            attendanceDays: summaryData.attendanceDays || 26
-          });
-        }
-        setLoading(false);
-      })
-      .catch(() => {
-        // 使用默认配置
+  // 加载数据函数
+  const loadData = useCallback(async (showRefreshing = false) => {
+    if (showRefreshing) setRefreshing(true);
+    else setLoading(true);
+    
+    try {
+      const [configData, summaryData, employeesData] = await Promise.all([
+        fetchConfig(),
+        fetchMonthlySummary(year, month),
+        fetchEmployees()
+      ]);
+      
+      setConfig(configData);
+      setSummary(summaryData);
+      setEmployees(employeesData);
+      
+      if (summaryData) {
+        setManualInput(prev => ({
+          ...prev,
+          netFormationRate: summaryData.netFormationRate || prev.netFormationRate,
+          operationRate: summaryData.operationRate || prev.operationRate,
+          totalEquivalent: summaryData.totalEquivalent || prev.totalEquivalent,
+          totalArea: summaryData.totalArea || 0,
+          totalNets: summaryData.totalNets || 0,
+          qualifiedNets: summaryData.qualifiedNets || 0,
+          activeMachines: summaryData.activeMachines || prev.activeMachines,
+          actualOperators: summaryData.actualOperators || prev.actualOperators
+        }));
+      }
+    } catch (err) {
+      console.error('加载数据失败:', err);
+      // 使用默认配置
+      if (!config) {
         setConfig({
           netFormationBenchmark: 68,
           operationRateBenchmark: 72,
@@ -201,14 +242,29 @@ export const BonusCalculation: React.FC = () => {
           leaderBaseSalary: 3500,
           memberBaseSalary: 2500
         });
+      }
+      if (employees.length === 0) {
         setEmployees([
           { id: 'w1', name: '耿志友', position: 'admin_leader', baseSalary: 3500, coefficient: 1.3 },
           { id: 'w2', name: '赵红林', position: 'admin_member', baseSalary: 2500, coefficient: 1.0 },
           { id: 'w3', name: '夏旺潮', position: 'admin_member', baseSalary: 2500, coefficient: 1.0 }
         ]);
-        setLoading(false);
-      });
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, [year, month]);
+
+  // 初始加载
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // 刷新数据
+  const handleRefresh = () => {
+    loadData(true);
+  };
 
   if (loading || !config) {
     return (
@@ -221,15 +277,67 @@ export const BonusCalculation: React.FC = () => {
   // 计算结果
   const result = calculateBonus({
     totalEquivalent: manualInput.totalEquivalent,
+    totalArea: manualInput.totalArea,
+    totalNets: manualInput.totalNets,
+    qualifiedNets: manualInput.qualifiedNets,
     netFormationRate: manualInput.netFormationRate,
     operationRate: manualInput.operationRate,
     activeMachines: manualInput.activeMachines,
-    actualOperators: manualInput.actualOperators,
-    attendanceDays: manualInput.attendanceDays
+    actualOperators: manualInput.actualOperators
   }, config);
 
   // 管理员班人员
   const adminEmployees = employees.filter(e => e.position.startsWith('admin'));
+
+  // 确认本月核算
+  const handleConfirm = async () => {
+    if (!confirm(`确认保存 ${year}年${month}月 的核算结果？\n\n总奖金池：¥${result.totalBonusPool.toFixed(0)}`)) {
+      return;
+    }
+    
+    setConfirming(true);
+    try {
+      // 保存月度核算数据
+      const response = await fetch(`${API_BASE}/monthly-data`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          year,
+          month,
+          totalArea: manualInput.totalArea,
+          equivalentOutput: manualInput.totalEquivalent,
+          totalNets: manualInput.totalNets,
+          qualifiedNets: manualInput.qualifiedNets,
+          totalBonus: result.totalBonusPool,
+          perSqmBonus: manualInput.totalArea > 0 ? result.totalBonusPool / manualInput.totalArea : 0,
+          adminTeamBonus: result.totalBonusPool,
+          isConfirmed: true,
+          calculationSnapshot: {
+            netFormationRate: manualInput.netFormationRate,
+            operationRate: manualInput.operationRate,
+            activeMachines: manualInput.activeMachines,
+            actualOperators: manualInput.actualOperators,
+            qualityBonusCoef: result.qualityBonusCoef,
+            qualityBonusTotal: result.qualityBonusTotal,
+            operationBonusTotal: result.operationBonusTotal,
+            totalBonusPool: result.totalBonusPool,
+            leaderBonus: result.leaderBonus,
+            memberBonus: result.memberBonus,
+            leaderTotalWage: result.leaderTotalWage,
+            memberTotalWage: result.memberTotalWage
+          }
+        })
+      });
+      
+      if (!response.ok) throw new Error('保存失败');
+      
+      alert(`${year}年${month}月核算结果已保存！`);
+    } catch (err) {
+      alert('保存失败，请重试');
+    } finally {
+      setConfirming(false);
+    }
+  };
 
   return (
     <div className="space-y-6 animate-fade-in-up">
@@ -260,6 +368,14 @@ export const BonusCalculation: React.FC = () => {
               <option key={m} value={m}>{m}月</option>
             ))}
           </select>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="p-2 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
+            title="刷新数据（从生产记录同步）"
+          >
+            <RefreshCw className={`w-5 h-5 text-slate-600 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
         </div>
       </div>
 
@@ -318,16 +434,17 @@ export const BonusCalculation: React.FC = () => {
                 />
               </div>
             </div>
-            <div>
-              <label className="block text-sm text-slate-600 mb-1">出勤天数</label>
-              <input
-                type="number"
-                value={manualInput.attendanceDays}
-                onChange={e => setManualInput(prev => ({ ...prev, attendanceDays: parseInt(e.target.value) || 0 }))}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-              />
-            </div>
           </div>
+          {/* 生产数据提示 */}
+          {manualInput.totalNets > 0 && (
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg text-xs text-blue-600">
+              <div className="flex items-center gap-1 mb-1">
+                <Info className="w-3 h-3" />
+                <span className="font-medium">本月生产统计</span>
+              </div>
+              <div>总网数: {manualInput.totalNets} | 合格: {manualInput.qualifiedNets} | 面积: {manualInput.totalArea.toFixed(0)}㎡</div>
+            </div>
+          )}
         </div>
 
         {/* 奖金计算 */}
@@ -399,7 +516,7 @@ export const BonusCalculation: React.FC = () => {
               adminEmployees.map(emp => {
                 const isLeader = emp.position === 'admin_leader';
                 const bonus = isLeader ? result.leaderBonus : result.memberBonus;
-                const basePay = emp.baseSalary * Math.min(manualInput.attendanceDays / 26, 1);
+                const basePay = emp.baseSalary;
                 const totalWage = basePay + bonus;
                 
                 return (
@@ -456,9 +573,22 @@ export const BonusCalculation: React.FC = () => {
             )}
 
             {/* 确认按钮 */}
-            <button className="w-full mt-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-xl flex items-center justify-center gap-2 hover:from-blue-700 hover:to-indigo-700 transition-all">
-              <CheckCircle className="w-5 h-5" />
-              确认本月核算
+            <button 
+              onClick={handleConfirm}
+              disabled={confirming}
+              className="w-full mt-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-xl flex items-center justify-center gap-2 hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {confirming ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  保存中...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-5 h-5" />
+                  确认本月核算
+                </>
+              )}
             </button>
           </div>
         </div>
