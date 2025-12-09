@@ -95,7 +95,7 @@ curl http://localhost:3000/api/health
 应返回：`{"connected":true,"ok":true}`
 
 ### 注意事项
-- `.env.server` 包含数据库密码，不要提交到 Git
+- `.env.server` 包含数据库密码
 - 前端通过动态 `API_BASE` 调用后端（默认指向 `http://localhost:3000/api`，也可通过 `VITE_API_BASE` 覆盖）
 - 数据库密码只存在后端，前端看不到
 
