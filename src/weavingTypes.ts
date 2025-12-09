@@ -63,6 +63,8 @@ export interface WeavingMonthlyData {
     operationRate: number;
     /** 出勤天数（用于基本积分计算） */
     attendanceDays: number;
+    /** 手动录入的目标产量（可选，覆盖自动计算） */
+    targetOutput?: number;
 }
 
 /**
@@ -153,7 +155,7 @@ export type EmployeeStatus = 'active' | 'probation' | 'leave' | 'terminated';
  * 织造工段岗位类型
  * - admin_leader: 管理员班长（参与奖金分配，系数1.3）
  * - admin_member: 管理员班员（参与奖金分配，系数1.0）
- * - operator: 操作工（负责机台操作，不参与管理员奖金分配）
+ * - operator: 操作工（仅用于定员计算，不参与此奖金分配）
  */
 export type WeavingPosition = 'admin_leader' | 'admin_member' | 'operator';
 
@@ -183,7 +185,7 @@ export const WEAVING_POSITION_CONFIG: Record<WeavingPosition, {
         label: '操作工',
         coefficient: 0,
         baseSalary: 0,
-        description: '负责机台操作，薪酬另行计算'
+        description: '负责机台操作，仅计入定员数据'
     }
 };
 
@@ -214,7 +216,7 @@ export interface WeavingEmployee {
     notes?: string;
     /** 出勤天数（当月） */
     attendanceDays?: number;
-    
+
     // ========== 操作工专用字段 ==========
     /** 分配的机台号 (H1-H11)，仅操作工需要 */
     machineId?: string;
@@ -227,32 +229,32 @@ export interface WeavingEmployee {
  * 织造工段管理员班组的默认人员配置
  */
 export const INITIAL_ADMIN_TEAM: WeavingEmployee[] = [
-    { 
-        id: 'w1', 
-        name: '耿志友', 
+    {
+        id: 'w1',
+        name: '耿志友',
         gender: 'male',
-        position: 'admin_leader', 
-        baseSalary: 3500, 
+        position: 'admin_leader',
+        baseSalary: 3500,
         coefficient: 1.3,
         joinDate: '2020-01-01',
         status: 'active'
     },
-    { 
-        id: 'w2', 
-        name: '赵红林', 
+    {
+        id: 'w2',
+        name: '赵红林',
         gender: 'male',
-        position: 'admin_member', 
-        baseSalary: 2500, 
+        position: 'admin_member',
+        baseSalary: 2500,
         coefficient: 1.0,
         joinDate: '2020-03-15',
         status: 'active'
     },
-    { 
-        id: 'w3', 
-        name: '夏旺潮', 
+    {
+        id: 'w3',
+        name: '夏旺潮',
         gender: 'male',
-        position: 'admin_member', 
-        baseSalary: 2500, 
+        position: 'admin_member',
+        baseSalary: 2500,
         coefficient: 1.0,
         joinDate: '2021-06-01',
         status: 'active'
