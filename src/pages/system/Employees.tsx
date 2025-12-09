@@ -23,7 +23,8 @@ import {
     ChevronRight,
     MoreVertical,
     Layers,
-    Lock
+    Lock,
+    CheckSquare
 } from 'lucide-react';
 
 // 系统核心工段，不可删除（与路由和系统功能硬绑定）
@@ -59,15 +60,40 @@ const formatDate = (dateString: string): string => {
     return `${year}-${month}-${day}`;
 };
 
+// Position Label Mapping
+const getPositionLabel = (pos: string) => {
+    const map: Record<string, string> = {
+        'admin_leader': '管理员班长',
+        'admin_member': '管理员班员',
+        'operator': '操作工',
+        '机台管理员班长': '管理员班长', // Legacy support
+        '机台管理员': '管理员班员'      // Legacy support
+    };
+    return map[pos] || pos;
+};
+
 export const Employees: React.FC = () => {
     const { employees, workshops, addEmployee, updateEmployee, deleteEmployee, addWorkshop, deleteWorkshop, addWorkshopFolder, deleteWorkshopFolder } = useData();
     const { hasPermission, hasScope } = useAuth();
 
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [sortOrder, setSortOrder] = useState<'name' | 'date'>('date'); // New Sort State
 
     // Selection State
-    const [selectedWorkshopId, setSelectedWorkshopId] = useState<string | null>(workshops[0]?.id || null);
+    const [selectedWorkshopId, setSelectedWorkshopId] = useState<string | null>(() => {
+        const saved = localStorage.getItem('lastSelectedWorkshopId');
+        // Only return saved if it exists in current workshops list (validity check)
+        if (saved && workshops.some(w => w.id === saved)) return saved;
+        return workshops[0]?.id || null;
+    });
+
+    // Persist effect
+    React.useEffect(() => {
+        if (selectedWorkshopId) {
+            localStorage.setItem('lastSelectedWorkshopId', selectedWorkshopId);
+        }
+    }, [selectedWorkshopId]);
     const [selectedFolder, setSelectedFolder] = useState<string | null>(null); // Department Name
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -77,9 +103,14 @@ export const Employees: React.FC = () => {
     const [newWorkshopName, setNewWorkshopName] = useState('');
     const [newWorkshopCode, setNewWorkshopCode] = useState('');
     const [editingEmp, setEditingEmp] = useState<Employee | null>(null);
+    const [editingFolder, setEditingFolder] = useState<{ name: string, originalName: string } | null>(null); // New Folder Rename State
 
     const canView = hasPermission('VIEW_EMPLOYEES');
     const canManage = hasPermission('MANAGE_EMPLOYEES');
+
+    // Batch Selection State
+    const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Set<string>>(new Set());
+    const [isSelectionMode, setIsSelectionMode] = useState(false); // Toggle selection mode
 
     // Filter Logic
     const filteredEmployees = useMemo(() => {
@@ -93,8 +124,54 @@ export const Employees: React.FC = () => {
                 emp.position.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesStatus = statusFilter === 'all' || emp.status === statusFilter;
             return matchesSearch && matchesStatus;
+        }).sort((a, b) => {
+            if (sortOrder === 'date') {
+                return new Date(b.joinDate).getTime() - new Date(a.joinDate).getTime();
+            } else {
+                // Use numeric: true to handle "1", "2", "10" correctly
+                return a.name.localeCompare(b.name, 'zh-CN', { numeric: true });
+            }
         });
-    }, [employees, searchTerm, statusFilter, selectedWorkshopId, selectedFolder]);
+    }, [employees, searchTerm, statusFilter, selectedWorkshopId, selectedFolder, sortOrder]);
+
+    // Handle Batch Select
+    const toggleSelectEmployee = (id: string) => {
+        const newSet = new Set(selectedEmployeeIds);
+        if (newSet.has(id)) {
+            newSet.delete(id);
+        } else {
+            newSet.add(id);
+        }
+        setSelectedEmployeeIds(newSet);
+    };
+
+    const handleSelectAll = () => {
+        if (selectedEmployeeIds.size === filteredEmployees.length) {
+            setSelectedEmployeeIds(new Set());
+        } else {
+            setSelectedEmployeeIds(new Set(filteredEmployees.map(e => e.id)));
+        }
+    };
+
+    // Bulk Delete
+    const handleBulkDelete = async () => {
+        if (!canManage) return;
+        if (selectedEmployeeIds.size === 0) return;
+        if (confirm(`确定要批量删除选中的 ${selectedEmployeeIds.size} 名员工吗？\n(标记为离职)`)) {
+            try {
+                for (const id of selectedEmployeeIds) {
+                    const emp = employees.find(e => e.id === id);
+                    if (emp) await updateEmployee({ ...emp, status: 'terminated' });
+                }
+                alert("批量操作成功");
+                setSelectedEmployeeIds(new Set());
+                setIsSelectionMode(false);
+            } catch (error) {
+                console.error(error);
+                alert("批量操作失败");
+            }
+        }
+    };
 
     // Form State
     const initialFormState: Omit<Employee, 'id'> = {
@@ -143,18 +220,33 @@ export const Employees: React.FC = () => {
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!canManage) return;
-        if (editingEmp) {
-            await updateEmployee({ ...formData, id: editingEmp.id });
-        } else {
-            await addEmployee(formData);
+        try {
+            if (editingEmp) {
+                await updateEmployee({ ...formData, id: editingEmp.id });
+                alert('员工信息更新成功');
+            } else {
+                const newEmployee = await addEmployee(formData);
+                alert(`员工 ${newEmployee.name} 创建成功`);
+            }
+            setIsModalOpen(false);
+        } catch (error: any) {
+            console.error('Failed to save employee:', error);
+            const errorMessage = error.message || '保存员工信息失败，请检查网络连接';
+            alert(`错误: ${errorMessage}`);
         }
-        setIsModalOpen(false);
     };
 
     const handleDelete = async (emp: Employee) => {
         if (!canManage) return;
         if (confirm(`确定要将 ${emp.name} 标记为离职吗？\n(历史数据将保留)`)) {
-            await updateEmployee({ ...emp, status: 'terminated' });
+            try {
+                await updateEmployee({ ...emp, status: 'terminated' });
+                alert(`员工 ${emp.name} 已标记为离职`);
+            } catch (error: any) {
+                console.error('Failed to update employee status:', error);
+                const errorMessage = error.message || '标记为离职失败，请检查网络连接';
+                alert(`错误: ${errorMessage}`);
+            }
         }
     };
 
@@ -184,6 +276,54 @@ export const Employees: React.FC = () => {
                 console.error(error);
                 alert("删除文件夹失败");
             }
+        }
+    };
+
+    // Handle Folder Rename
+    const handleRenameFolder = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingFolder || !selectedWorkshopId) return;
+
+        try {
+            // Since we don't have a direct rename API, we can simulate it or if backend supports it.
+            // Assuming we need to implement rename in DB or just delete/add.
+            // For now, let's assume we simply add new and delete old if API doesn't support rename directly.
+            // Ideally, we should have a rename API. 
+            // BUT, since I cannot easily change the backend API right now without seeing db.ts fully,
+            // I will use a simple workaround: Add new folder, then we would need to update employees.
+            // Actually, let's check provided db.ts... it wasn't fully provided. 
+            // Usage: addWorkshopFolder(wsId, name).
+            // Let's assume for now we just allow creating a new one and deleting old, 
+            // OR if the user expects "Rename", I should probably use `deleteWorkshopFolder` and `addWorkshopFolder` 
+            // AND update all employees in that folder.
+
+            // To be safe and simple for this "fix" without complex transactions:
+            // I'll just alert that this requires backend support if I can't confirm.
+            // Wait, I can try to find if `updateWorkshopFolder` exists? 
+            // Probably not. 
+            // Let's implement a 'safe' rename: Create New -> Update Employees -> Delete Old.
+
+            /* Implementation Plan for Rename:
+               1. Add new folder
+               2. Update all employees in old folder to new folder
+               3. Delete old folder
+            */
+
+            await addWorkshopFolder(selectedWorkshopId, editingFolder.name);
+
+            // Find employees in this folder
+            const empsInFolder = employees.filter(e => e.workshopId === selectedWorkshopId && e.department === editingFolder.originalName);
+            for (const emp of empsInFolder) {
+                await updateEmployee({ ...emp, department: editingFolder.name });
+            }
+
+            await deleteWorkshopFolder(selectedWorkshopId, editingFolder.originalName);
+
+            if (selectedFolder === editingFolder.originalName) setSelectedFolder(editingFolder.name);
+            setEditingFolder(null);
+        } catch (error) {
+            console.error(error);
+            alert("重命名失败，请重试");
         }
     };
 
@@ -232,7 +372,7 @@ export const Employees: React.FC = () => {
     }
 
     return (
-        <div className="h-full flex flex-col md:flex-row gap-6 animate-fade-in-up">
+        <div className="h-full flex flex-col md:flex-row gap-6 animate-fade-in-up max-w-7xl mx-auto px-4 w-full">
 
             {/* LEFT PANE: Workshops & Folders */}
             <div className="w-full md:w-72 flex-shrink-0 card flex flex-col overflow-hidden">
@@ -319,13 +459,25 @@ export const Employees: React.FC = () => {
                                                     <span>{dept}</span>
                                                 </div>
                                                 {canManage && (
-                                                    <button
-                                                        onClick={(e) => handleDeleteFolder(e, ws.id, dept)}
-                                                        className="text-slate-300 hover:text-red-500 opacity-0 group-hover/folder:opacity-100 transition-opacity p-1"
-                                                        title="删除文件夹"
-                                                    >
-                                                        <X size={12} />
-                                                    </button>
+                                                    <div className="flex items-center gap-0.5 opacity-0 group-hover/folder:opacity-100 transition-opacity">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setEditingFolder({ name: dept, originalName: dept });
+                                                            }}
+                                                            className="text-slate-300 hover:text-blue-500 p-1 rounded hover:bg-blue-50 transition-colors"
+                                                            title="重命名文件夹"
+                                                        >
+                                                            <Edit3 size={12} />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => handleDeleteFolder(e, ws.id, dept)}
+                                                            className="text-slate-300 hover:text-red-500 p-1 rounded hover:bg-red-50 transition-colors"
+                                                            title="删除文件夹"
+                                                        >
+                                                            <X size={12} />
+                                                        </button>
+                                                    </div>
                                                 )}
                                             </div>
                                         ))}
@@ -358,41 +510,123 @@ export const Employees: React.FC = () => {
                     )}
                 </div>
 
-                <div className="card p-4 flex flex-col md:flex-row gap-4">
-                    <div className="relative flex-1">
+                <div className="card p-3 flex flex-col md:flex-row gap-3 items-center bg-white rounded-2xl border border-slate-100 shadow-sm">
+                    {/* Search Bar */}
+                    <div className="relative flex-1 w-full md:w-auto">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                         <label htmlFor="employee-search" className="sr-only">搜索姓名或职位</label>
                         <input
                             id="employee-search"
                             type="text"
                             placeholder="搜索姓名或职位..."
-                            className="input pl-10"
+                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border-none rounded-xl text-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all outline-none"
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Filter size={18} className="text-slate-400" />
-                        <label htmlFor="employee-status-filter" className="sr-only">筛选在职状态</label>
-                        <select
-                            id="employee-status-filter"
-                            className="input py-2 min-w-[120px]"
-                            value={statusFilter}
-                            onChange={e => setStatusFilter(e.target.value)}
-                        >
-                            <option value="all">所有状态</option>
-                            <option value="active">正式在职</option>
-                            <option value="probation">试用期</option>
-                            <option value="leave">休假中</option>
-                            <option value="terminated">已离职</option>
-                        </select>
+
+                    <div className="flex items-center gap-2 w-full md:w-auto shrink-0 overflow-x-auto pb-1 md:pb-0">
+                        {/* Sort Toggle Group */}
+                        <div className="flex bg-slate-100 p-1 rounded-xl shrink-0">
+                            <button
+                                onClick={() => setSortOrder('date')}
+                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${sortOrder === 'date'
+                                        ? 'bg-white text-blue-600 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-700'
+                                    }`}
+                            >
+                                <Calendar size={14} />
+                                日期
+                            </button>
+                            <button
+                                onClick={() => setSortOrder('name')}
+                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${sortOrder === 'name'
+                                        ? 'bg-white text-blue-600 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-700'
+                                    }`}
+                            >
+                                <User size={14} />
+                                姓名
+                            </button>
+                        </div>
+
+                        {/* Status Filter */}
+                        <div className="relative shrink-0">
+                            <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                            <select
+                                id="employee-status-filter"
+                                className="appearance-none pl-9 pr-8 py-2.5 bg-slate-50 text-slate-600 text-sm font-medium rounded-xl border-none focus:ring-2 focus:ring-blue-500/20 outline-none cursor-pointer hover:bg-slate-100 transition-colors"
+                                value={statusFilter}
+                                onChange={e => setStatusFilter(e.target.value)}
+                            >
+                                <option value="all">所有状态</option>
+                                <option value="active">正式在职</option>
+                                <option value="probation">试用期</option>
+                                <option value="leave">休假中</option>
+                                <option value="terminated">已离职</option>
+                            </select>
+                            <ChevronRight size={14} className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" />
+                        </div>
+
+                        {/* Batch Mode Toggle */}
+                        {canManage && (
+                            <button
+                                onClick={() => setIsSelectionMode(!isSelectionMode)}
+                                className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 shrink-0 ${isSelectionMode
+                                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 hover:bg-blue-700'
+                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                                    }`}
+                            >
+                                <CheckSquare size={16} />
+                                <span>批量</span>
+                            </button>
+                        )}
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+                    {/* Bulk Action Bar */}
+                    {isSelectionMode && (
+                        <div className="sticky top-0 z-10 bg-white/95 backdrop-blur shadow-sm border-b p-3 flex justify-between items-center animate-fade-in-up mb-4 rounded-xl mx-1">
+                            <div className="flex items-center gap-3">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedEmployeeIds.size === filteredEmployees.length && filteredEmployees.length > 0}
+                                    onChange={handleSelectAll}
+                                    className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="font-medium text-slate-700">已选择 {selectedEmployeeIds.size} 人</span>
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleBulkDelete}
+                                    disabled={selectedEmployeeIds.size === 0}
+                                    className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-medium transition-colors disabled:opacity-50 text-sm flex items-center gap-1"
+                                >
+                                    <Trash2 size={16} /> 批量离职
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pb-6">
                         {filteredEmployees.map(emp => (
-                            <div key={emp.id} className="card card-hover p-5 flex flex-col relative group">
+                            <div
+                                key={emp.id}
+                                className={`card card-hover p-5 flex flex-col relative group transition-all ${selectedEmployeeIds.has(emp.id) ? 'ring-2 ring-blue-500 bg-blue-50/30' : ''}`}
+                                onClick={() => isSelectionMode && toggleSelectEmployee(emp.id)}
+                            >
+                                {isSelectionMode && (
+                                    <div className="absolute top-4 right-4 z-10">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedEmployeeIds.has(emp.id)}
+                                            onChange={() => toggleSelectEmployee(emp.id)}
+                                            className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                    </div>
+                                )}
                                 <div className="flex justify-between items-start mb-4">
                                     <div className="flex items-center gap-3.5">
                                         <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold shadow-sm ${emp.gender === 'male' ? 'bg-gradient-to-br from-primary-100 to-primary-50 text-primary-600' : 'bg-gradient-to-br from-pink-100 to-pink-50 text-pink-600'}`}>
@@ -401,8 +635,8 @@ export const Employees: React.FC = () => {
                                         <div>
                                             <h3 className="font-bold text-slate-800 text-lg">{emp.name}</h3>
                                             <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                                                {emp.department} · {emp.position}
-                                                {emp.machineId && <span className="bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-md ml-1 font-medium">{emp.machineId}</span>}
+                                                {emp.department} · {getPositionLabel(emp.position)}
+                                                {emp.machineId && <span className="bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-md ml-1 font-medium">{getPositionLabel(emp.machineId) === emp.machineId ? emp.machineId : getPositionLabel(emp.machineId)}</span>}
                                             </div>
                                         </div>
                                     </div>
@@ -414,14 +648,26 @@ export const Employees: React.FC = () => {
                                         <span className="text-slate-500">入职日期</span>
                                         <span className="font-medium text-slate-700 tabular-nums">{formatDate(emp.joinDate)}</span>
                                     </div>
-                                    <div className="flex justify-between text-sm">
+                                    <div className="flex justify-between items-center mt-3 text-sm">
                                         <span className="text-slate-500">每日工时标准</span>
-                                        <span className="font-medium text-slate-700">{emp.expectedDailyHours || 12} 小时</span>
+                                        <span className="font-semibold text-slate-700">{emp.expectedDailyHours} 小时</span>
                                     </div>
-                                    <div className="flex justify-between text-sm items-center pt-3 border-t border-slate-100">
-                                        <span className="text-slate-600 font-semibold">技能基础分</span>
-                                        <span className="font-bold text-primary-600 text-lg bg-primary-50 px-2.5 py-0.5 rounded-lg tabular-nums">{emp.standardBaseScore}</span>
-                                    </div>
+
+                                    {/* Only show 'Base Score' for Styling Workshop (ws_styling) */}
+                                    {emp.workshopId === 'ws_styling' && (
+                                        <div className="flex justify-between items-center mt-3 bg-indigo-50 p-2 rounded-lg">
+                                            <span className="text-slate-600 font-bold">技能基础分</span>
+                                            <span className="font-bold text-indigo-600 text-lg">{emp.standardBaseScore}</span>
+                                        </div>
+                                    )}
+
+                                    {/* For Weaving or Others, show Base Salary if > 0 */}
+                                    {emp.workshopId !== 'ws_styling' && emp.baseSalary > 0 && (
+                                        <div className="flex justify-between items-center mt-3 bg-emerald-50 p-2 rounded-lg">
+                                            <span className="text-slate-600 font-bold">基本工资</span>
+                                            <span className="font-bold text-emerald-600 text-lg">¥{emp.baseSalary}</span>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {canManage && (
@@ -448,7 +694,14 @@ export const Employees: React.FC = () => {
                                                 <button
                                                     onClick={async () => {
                                                         if (confirm(`⚠️ 警告：确定要永久删除 ${emp.name} 吗？\n\n此操作将删除员工的所有历史数据，不可恢复！`)) {
-                                                            await deleteEmployee(emp.id);
+                                                            try {
+                                                                await deleteEmployee(emp.id);
+                                                                alert(`员工 ${emp.name} 已永久删除`);
+                                                            } catch (error: any) {
+                                                                console.error('Failed to delete employee:', error);
+                                                                const errorMessage = error.message || '删除员工失败，请检查网络连接';
+                                                                alert(`错误: ${errorMessage}`);
+                                                            }
                                                         }
                                                     }}
                                                     className="px-3 py-2 rounded-lg border border-red-100 hover:bg-red-50 text-red-600 transition-colors"
@@ -484,251 +737,282 @@ export const Employees: React.FC = () => {
             {/* Employee Modal */}
             {isModalOpen && canManage && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-fade-in flex flex-col">
-                        <div className="p-6 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white z-10">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-fade-in-up">
+                        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white z-10 shrink-0">
                             <h2 className="text-xl font-bold text-slate-800">
                                 {editingEmp ? '编辑员工档案' : '录入新员工'}
                             </h2>
-                            <button type="button" title="关闭" aria-label="关闭" onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                            <button type="button" title="关闭" aria-label="关闭" onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
                                 <X size={24} />
                             </button>
                         </div>
 
-                        <form onSubmit={handleSave} className="p-6 space-y-6">
-                            {/* Basic info form (similar to before but with fixed workshop select) */}
-                            <div className="space-y-4">
-                                <h3 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-2">
-                                    <User size={16} /> 基本信息
-                                </h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label htmlFor="employee-name" className="block text-sm font-medium text-slate-700 mb-1">姓名 <span className="text-red-500">*</span></label>
-                                        <input
-                                            id="employee-name"
-                                            required type="text"
-                                            className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                                            value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label htmlFor="employee-workshop" className="block text-sm font-medium text-slate-700 mb-1">所属工段</label>
-                                        <select
-                                            id="employee-workshop"
-                                            disabled
-                                            className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-slate-100"
-                                            value={formData.workshopId}
-                                        >
-                                            {workshops.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label htmlFor="employee-department" className="block text-sm font-medium text-slate-700 mb-1">部门/文件夹 (分组)</label>
-                                        {/* 如果工段有文件夹，则强制选择；否则允许输入 */}
-                                        {(() => {
-                                            const currentWs = workshops.find(w => w.id === formData.workshopId);
-                                            const departments = currentWs?.departments || [];
-
-                                            // 只有当有定义的文件夹时，才使用下拉框
-                                            if (departments.length > 0) {
-                                                return (
-                                                    <select
-                                                        id="employee-department"
-                                                        className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                                                        value={formData.department}
-                                                        onChange={e => setFormData({ ...formData, department: e.target.value })}
-                                                    >
-                                                        <option value="">-- 未分组 --</option>
-                                                        {departments.map(d => (
-                                                            <option key={d} value={d}>{d}</option>
-                                                        ))}
-                                                        {/* 如果当前部门不在列表中（历史数据），也显示出来 */}
-                                                        {formData.department && !departments.includes(formData.department) && (
-                                                            <option value={formData.department}>{formData.department} (历史数据)</option>
-                                                        )}
-                                                    </select>
-                                                );
-                                            } else {
-                                                return (
-                                                    <div className="relative">
-                                                        <input
-                                                            id="employee-department"
-                                                            type="text"
-                                                            placeholder="该工段暂无文件夹，可直接输入或在左侧新建"
-                                                            className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                                                            value={formData.department}
-                                                            onChange={e => setFormData({ ...formData, department: e.target.value })}
-                                                        />
-                                                        <p className="text-xs text-slate-400 mt-1">提示：在左侧栏点击 "+" 号可新建分组文件夹</p>
-                                                    </div>
-                                                );
-                                            }
-                                        })()}
-                                    </div>
-                                    <div>
-                                        <label htmlFor="employee-position" className="block text-sm font-medium text-slate-700 mb-1">职位</label>
-                                        {workshops.find(w => w.id === formData.workshopId)?.code === 'weaving' ? (
-                                            <select
-                                                id="employee-position"
-                                                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                                                value={formData.position}
-                                                onChange={e => {
-                                                    const pos = e.target.value;
-                                                    // 自动设置基本工资和系数
-                                                    const baseSalary = pos === '机台管理员班长' ? 3500 : pos === '机台管理员' ? 2500 : 0;
-                                                    const coefficient = pos === '机台管理员班长' ? 1.3 : 1.0;
-                                                    setFormData({ ...formData, position: pos, baseSalary, coefficient });
-                                                }}
-                                            >
-                                                <option value="">请选择职位</option>
-                                                <option value="机台管理员班长">机台管理员班长</option>
-                                                <option value="机台管理员">机台管理员</option>
-                                            </select>
-                                        ) : (
-                                            <input
-                                                id="employee-position"
-                                                type="text"
-                                                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                                                value={formData.position} onChange={e => setFormData({ ...formData, position: e.target.value })}
-                                            />
-                                        )}
-                                    </div>
-                                    <div>
-                                        <label htmlFor="employee-gender" className="block text-sm font-medium text-slate-700 mb-1">性别</label>
-                                        <select
-                                            id="employee-gender"
-                                            className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                                            value={formData.gender} onChange={e => setFormData({ ...formData, gender: e.target.value as any })}
-                                        >
-                                            <option value="male">男</option>
-                                            <option value="female">女</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label htmlFor="employee-joindate" className="block text-sm font-medium text-slate-700 mb-1">入职日期</label>
-                                        <input
-                                            id="employee-joindate"
-                                            type="date"
-                                            className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                                            value={formatDate(formData.joinDate)}
-                                            onChange={e => setFormData({ ...formData, joinDate: e.target.value })}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label htmlFor="employee-status" className="block text-sm font-medium text-slate-700 mb-1">在职状态</label>
-                                        <select
-                                            id="employee-status"
-                                            className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                                            value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value as any })}
-                                        >
-                                            <option value="active">正式在职</option>
-                                            <option value="probation">试用期</option>
-                                            <option value="leave">休假中</option>
-                                            <option value="terminated">已离职</option>
-                                        </select>
-                                    </div>
-
-                                    {/* 织造工段专用：机台号 */}
-                                    {workshops.find(w => w.id === formData.workshopId)?.code === 'weaving' && (
+                        <form onSubmit={handleSave} className="flex-1 flex flex-col overflow-hidden">
+                            <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+                                {/* Basic info form (similar to before but with fixed workshop select) */}
+                                <div className="space-y-4">
+                                    <h3 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-2">
+                                        <User size={16} /> 基本信息
+                                    </h3>
+                                    <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label htmlFor="employee-machine" className="block text-sm font-medium text-slate-700 mb-1">机台号 (织造专用)</label>
+                                            <label htmlFor="employee-name" className="block text-sm font-medium text-slate-700 mb-1">姓名 <span className="text-red-500">*</span></label>
+                                            <input
+                                                id="employee-name"
+                                                required type="text"
+                                                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
+                                                value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label htmlFor="employee-workshop" className="block text-sm font-medium text-slate-700 mb-1">所属工段</label>
                                             <select
-                                                id="employee-machine"
-                                                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                                                value={formData.machineId || ''}
-                                                onChange={e => setFormData({ ...formData, machineId: e.target.value })}
+                                                id="employee-workshop"
+                                                disabled
+                                                className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-slate-100 text-slate-500 cursor-not-allowed"
+                                                value={formData.workshopId}
                                             >
-                                                <option value="">未分配</option>
-                                                <option value="admin">管理员班长</option>
-                                                {Array.from({ length: 11 }, (_, i) => `H${i + 1}`).map(m => (
-                                                    <option key={m} value={m}>{m}</option>
-                                                ))}
+                                                {workshops.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                                             </select>
                                         </div>
-                                    )}
+                                        <div>
+                                            <label htmlFor="employee-department" className="block text-sm font-medium text-slate-700 mb-1">部门/文件夹 (分组)</label>
+                                            {/* 如果工段有文件夹，则强制选择；否则允许输入 */}
+                                            {(() => {
+                                                const currentWs = workshops.find(w => w.id === formData.workshopId);
+                                                const departments = currentWs?.departments || [];
+
+                                                // 只有当有定义的文件夹时，才使用下拉框
+                                                if (departments.length > 0) {
+                                                    return (
+                                                        <select
+                                                            id="employee-department"
+                                                            className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
+                                                            value={formData.department}
+                                                            onChange={e => setFormData({ ...formData, department: e.target.value })}
+                                                        >
+                                                            <option value="">-- 未分组 --</option>
+                                                            {departments.map(d => (
+                                                                <option key={d} value={d}>{d}</option>
+                                                            ))}
+                                                            {/* 如果当前部门不在列表中（历史数据），也显示出来 */}
+                                                            {formData.department && !departments.includes(formData.department) && (
+                                                                <option value={formData.department}>{formData.department} (历史数据)</option>
+                                                            )}
+                                                        </select>
+                                                    );
+                                                } else {
+                                                    return (
+                                                        <div className="relative">
+                                                            <input
+                                                                id="employee-department"
+                                                                type="text"
+                                                                placeholder="该工段暂无文件夹，可直接输入"
+                                                                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
+                                                                value={formData.department}
+                                                                onChange={e => setFormData({ ...formData, department: e.target.value })}
+                                                            />
+                                                            <p className="text-xs text-slate-400 mt-1">提示：在左侧栏点击 "+" 号可新建分组文件夹</p>
+                                                        </div>
+                                                    );
+                                                }
+                                            })()}
+                                        </div>
+                                        <div>
+                                            <label htmlFor="employee-position" className="block text-sm font-medium text-slate-700 mb-1">职位</label>
+                                            {workshops.find(w => w.id === formData.workshopId)?.code === 'weaving' ? (
+                                                <select
+                                                    id="employee-position"
+                                                    className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
+                                                    value={formData.position}
+                                                    onChange={e => {
+                                                        const pos = e.target.value;
+                                                        // 自动设置基本工资和系数
+                                                        // admin_leader: 3500, 1.3
+                                                        // admin_member: 2500, 1.0
+                                                        let baseSalary = 0;
+                                                        let coefficient = 1.0;
+                                                        if (pos === 'admin_leader') {
+                                                            baseSalary = 3500;
+                                                            coefficient = 1.3;
+                                                        } else if (pos === 'admin_member') {
+                                                            baseSalary = 2500;
+                                                            coefficient = 1.0;
+                                                        }
+                                                        setFormData({ ...formData, position: pos, baseSalary, coefficient });
+                                                    }}
+                                                >
+                                                    <option value="">请选择职位</option>
+                                                    <option value="admin_leader">管理员班长 (admin_leader)</option>
+                                                    <option value="admin_member">管理员班员 (admin_member)</option>
+                                                    <option value="operator">操作工 (operator)</option>
+                                                </select>
+                                            ) : (
+                                                <input
+                                                    id="employee-position"
+                                                    type="text"
+                                                    className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
+                                                    value={formData.position} onChange={e => setFormData({ ...formData, position: e.target.value })}
+                                                />
+                                            )}
+                                        </div>
+                                        <div>
+                                            <label htmlFor="employee-gender" className="block text-sm font-medium text-slate-700 mb-1">性别</label>
+                                            <select
+                                                id="employee-gender"
+                                                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
+                                                value={formData.gender} onChange={e => setFormData({ ...formData, gender: e.target.value as any })}
+                                            >
+                                                <option value="male">男</option>
+                                                <option value="female">女</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label htmlFor="employee-joindate" className="block text-sm font-medium text-slate-700 mb-1">入职日期</label>
+                                            <input
+                                                id="employee-joindate"
+                                                type="date"
+                                                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
+                                                value={formatDate(formData.joinDate)}
+                                                onChange={e => setFormData({ ...formData, joinDate: e.target.value })}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label htmlFor="employee-status" className="block text-sm font-medium text-slate-700 mb-1">在职状态</label>
+                                            <select
+                                                id="employee-status"
+                                                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
+                                                value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value as any })}
+                                            >
+                                                <option value="active">正式在职</option>
+                                                <option value="probation">试用期</option>
+                                                <option value="leave">休假中</option>
+                                                <option value="terminated">已离职</option>
+                                            </select>
+                                        </div>
+
+                                        {/* 织造工段专用：机台号 */}
+                                        {workshops.find(w => w.id === formData.workshopId)?.code === 'weaving' && (
+                                            <div>
+                                                <label htmlFor="employee-machine" className="block text-sm font-medium text-slate-700 mb-1">机台号 (织造专用)</label>
+                                                <select
+                                                    id="employee-machine"
+                                                    className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
+                                                    value={formData.machineId || ''}
+                                                    onChange={e => setFormData({ ...formData, machineId: e.target.value })}
+                                                >
+                                                    <option value="">未分配</option>
+                                                    <option value="admin">管理员班长</option>
+                                                    <option value="admin_member">管理员</option>
+                                                    {Array.from({ length: 11 }, (_, i) => `H${i + 1}`).map(m => (
+                                                        <option key={m} value={m}>{m}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* 定型工段专用：积分与工时标准 */}
+                                {workshops.find(w => w.id === formData.workshopId)?.code === 'styling' && (
+                                    <div className="space-y-4">
+                                        <h3 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-2">
+                                            <CreditCard size={16} /> 积分与工时标准
+                                        </h3>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                                                <label htmlFor="employee-base-score" className="block text-sm font-medium text-slate-700 mb-2">技能基础分 (Standard)</label>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        id="employee-base-score"
+                                                        type="number"
+                                                        className="w-full text-lg font-bold border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-blue-600 transition-colors"
+                                                        value={formData.standardBaseScore} onChange={e => setFormData({ ...formData, standardBaseScore: parseInt(e.target.value) || 0 })}
+                                                    />
+                                                    <span className="text-slate-400 text-sm whitespace-nowrap">分</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                                                <label htmlFor="employee-daily-hours" className="block text-sm font-medium text-slate-700 mb-2">每日标准工时</label>
+                                                <div className="flex items-center gap-2">
+                                                    <Clock size={20} className="text-slate-400" />
+                                                    <input
+                                                        id="employee-daily-hours"
+                                                        type="number" min="0" max="24" step="0.5"
+                                                        className="w-full text-lg font-bold border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 transition-colors"
+                                                        value={formData.expectedDailyHours} onChange={e => setFormData({ ...formData, expectedDailyHours: parseFloat(e.target.value) || 0 })}
+                                                    />
+                                                    <span className="text-slate-400 text-sm whitespace-nowrap">小时</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* 织造工段专用：基本工资和分配系数 */}
+                                {workshops.find(w => w.id === formData.workshopId)?.code === 'weaving' && (
+                                    <div className="space-y-4">
+                                        <h3 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-2">
+                                            <CreditCard size={16} /> 薪资与奖金分配
+                                        </h3>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                                                <label htmlFor="employee-base-salary" className="block text-sm font-medium text-slate-700 mb-2">基本工资</label>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        id="employee-base-salary"
+                                                        type="number"
+                                                        className="w-full text-lg font-bold border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-blue-600 transition-colors"
+                                                        value={formData.baseSalary || 0}
+                                                        onChange={e => setFormData({ ...formData, baseSalary: parseInt(e.target.value) || 0 })}
+                                                    />
+                                                    <span className="text-slate-400 text-sm whitespace-nowrap">元</span>
+                                                </div>
+                                                <p className="text-xs text-slate-500 mt-2">班长3500，班员2500</p>
+                                            </div>
+                                            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                                                <label htmlFor="employee-coefficient" className="block text-sm font-medium text-slate-700 mb-2">分配系数</label>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        id="employee-coefficient"
+                                                        type="number"
+                                                        step="0.1"
+                                                        min="0"
+                                                        className="w-full text-lg font-bold border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-blue-600 transition-colors"
+                                                        value={formData.coefficient || 1.0}
+                                                        onChange={e => setFormData({ ...formData, coefficient: parseFloat(e.target.value) || 1.0 })}
+                                                    />
+                                                    <span className="text-slate-400 text-sm whitespace-nowrap">倍</span>
+                                                </div>
+                                                <p className="text-xs text-slate-500 mt-2">班长1.3，班员1.0</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* 备注信息 - 所有工段通用 */}
+                                <div className="space-y-4">
+                                    <h3 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-2">
+                                        <FileText size={16} /> 备注信息
+                                    </h3>
+                                    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                                        <label htmlFor="employee-notes" className="block text-sm font-medium text-slate-700 mb-2">备注</label>
+                                        <textarea
+                                            id="employee-notes"
+                                            rows={3}
+                                            className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none resize-none transition-colors"
+                                            placeholder="可填写员工的其他信息..."
+                                            value={formData.notes || ''}
+                                            onChange={e => setFormData({ ...formData, notes: e.target.value })}
+                                        />
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* Score and Hours - 仅定型工段显示 */}
-                            {workshops.find(w => w.id === formData.workshopId)?.code !== 'weaving' && (
-                                <div className="space-y-4">
-                                    <h3 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-2">
-                                        <CreditCard size={16} /> 积分与工时标准
-                                    </h3>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                                            <label htmlFor="employee-base-score" className="block text-sm font-medium text-slate-700 mb-2">技能基础分 (Standard)</label>
-                                            <div className="flex items-center gap-2">
-                                                <input
-                                                    id="employee-base-score"
-                                                    type="number"
-                                                    className="w-full text-lg font-bold border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-blue-600"
-                                                    value={formData.standardBaseScore} onChange={e => setFormData({ ...formData, standardBaseScore: parseInt(e.target.value) || 0 })}
-                                                />
-                                                <span className="text-slate-400 text-sm whitespace-nowrap">分</span>
-                                            </div>
-                                        </div>
-
-                                        <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                                            <label htmlFor="employee-daily-hours" className="block text-sm font-medium text-slate-700 mb-2">每日标准工时</label>
-                                            <div className="flex items-center gap-2">
-                                                <Clock size={20} className="text-slate-400" />
-                                                <input
-                                                    id="employee-daily-hours"
-                                                    type="number" min="0" max="24" step="0.5"
-                                                    className="w-full text-lg font-bold border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-slate-700"
-                                                    value={formData.expectedDailyHours} onChange={e => setFormData({ ...formData, expectedDailyHours: parseFloat(e.target.value) || 0 })}
-                                                />
-                                                <span className="text-slate-400 text-sm whitespace-nowrap">小时</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* 织造工段专用：基本工资和分配系数 */}
-                            {workshops.find(w => w.id === formData.workshopId)?.code === 'weaving' && (
-                                <div className="space-y-4">
-                                    <h3 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-2">
-                                        <CreditCard size={16} /> 薪资与奖金分配
-                                    </h3>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                                            <label htmlFor="employee-base-salary" className="block text-sm font-medium text-slate-700 mb-2">基本工资</label>
-                                            <div className="flex items-center gap-2">
-                                                <input
-                                                    id="employee-base-salary"
-                                                    type="number"
-                                                    className="w-full text-lg font-bold border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-blue-600"
-                                                    value={formData.baseSalary || 0}
-                                                    onChange={e => setFormData({ ...formData, baseSalary: parseInt(e.target.value) || 0 })}
-                                                />
-                                                <span className="text-slate-400 text-sm whitespace-nowrap">元</span>
-                                            </div>
-                                            <p className="text-xs text-slate-500 mt-2">班长3500，班员2500</p>
-                                        </div>
-                                        <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                                            <label htmlFor="employee-coefficient" className="block text-sm font-medium text-slate-700 mb-2">分配系数</label>
-                                            <div className="flex items-center gap-2">
-                                                <input
-                                                    id="employee-coefficient"
-                                                    type="number"
-                                                    step="0.1"
-                                                    min="0"
-                                                    className="w-full text-lg font-bold border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-blue-600"
-                                                    value={formData.coefficient || 1.0}
-                                                    onChange={e => setFormData({ ...formData, coefficient: parseFloat(e.target.value) || 1.0 })}
-                                                />
-                                                <span className="text-slate-400 text-sm whitespace-nowrap">倍</span>
-                                            </div>
-                                            <p className="text-xs text-slate-500 mt-2">班长1.3，班员1.0</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="pt-4 border-t border-slate-100 flex justify-end gap-3">
-                                <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">取消</button>
-                                <button type="submit" className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 shadow-lg">保存</button>
+                            <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0 rounded-b-2xl">
+                                <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors font-medium">取消</button>
+                                <button type="submit" className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 shadow-sm transition-all hover:shadow-md">保存</button>
                             </div>
                         </form>
                     </div>
@@ -738,11 +1022,11 @@ export const Employees: React.FC = () => {
             {/* New Folder Modal */}
             {isFolderModalOpen && canManage && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-fade-in-up">
                         <h3 className="text-lg font-bold mb-4">新建部门文件夹</h3>
                         <form onSubmit={handleCreateFolder}>
                             <label className="block text-sm font-medium text-slate-700 mb-1">所属工段</label>
-                            <div className="mb-4 text-sm font-bold text-slate-800 bg-slate-100 px-3 py-2 rounded">
+                            <div className="mb-4 text-sm font-bold text-slate-800 bg-slate-100 px-3 py-2 rounded-lg">
                                 {workshops.find(w => w.id === selectedWorkshopId)?.name}
                             </div>
                             <label htmlFor="new-folder-name" className="block text-sm font-medium text-slate-700 mb-1">文件夹名称</label>
@@ -756,8 +1040,36 @@ export const Employees: React.FC = () => {
                                 placeholder="例如：维修班"
                             />
                             <div className="flex justify-end gap-3">
-                                <button type="button" onClick={() => setIsFolderModalOpen(false)} className="px-4 py-2 border border-slate-300 rounded text-slate-700">取消</button>
-                                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">创建</button>
+                                <button type="button" onClick={() => setIsFolderModalOpen(false)} className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors">取消</button>
+                                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm">创建</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Rename Folder Modal */}
+            {editingFolder && canManage && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-fade-in-up">
+                        <h3 className="text-lg font-bold mb-4">重命名文件夹</h3>
+                        <form onSubmit={handleRenameFolder}>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">原名称</label>
+                            <div className="mb-4 text-sm text-slate-500 bg-slate-100 px-3 py-2 rounded-lg">
+                                {editingFolder.originalName}
+                            </div>
+                            <label htmlFor="rename-folder-name" className="block text-sm font-medium text-slate-700 mb-1">新名称</label>
+                            <input
+                                id="rename-folder-name"
+                                autoFocus
+                                type="text" required
+                                className="w-full border border-slate-300 rounded-lg px-3 py-2 mb-4 focus:ring-2 focus:ring-blue-500 outline-none"
+                                value={editingFolder.name}
+                                onChange={e => setEditingFolder({ ...editingFolder, name: e.target.value })}
+                            />
+                            <div className="flex justify-end gap-3">
+                                <button type="button" onClick={() => setEditingFolder(null)} className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors">取消</button>
+                                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm">保存</button>
                             </div>
                         </form>
                     </div>
@@ -767,7 +1079,7 @@ export const Employees: React.FC = () => {
             {/* New Workshop Modal */}
             {isWorkshopModalOpen && canManage && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-fade-in-up">
                         <h3 className="text-lg font-bold mb-4">新建一级工段</h3>
                         <form onSubmit={handleCreateWorkshop}>
                             <label htmlFor="new-workshop-name" className="block text-sm font-medium text-slate-700 mb-1">工段名称 (Name)</label>
@@ -789,12 +1101,12 @@ export const Employees: React.FC = () => {
                                 onChange={e => setNewWorkshopCode(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
                                 placeholder="例如：dyeing"
                             />
-                            <div className="bg-amber-50 p-3 rounded text-xs text-amber-700 mb-4">
+                            <div className="bg-amber-50 p-3 rounded-lg text-xs text-amber-700 mb-4">
                                 提示：Code 必须是唯一的英文字母，用于权限分配。
                             </div>
                             <div className="flex justify-end gap-3">
-                                <button type="button" onClick={() => setIsWorkshopModalOpen(false)} className="px-4 py-2 border border-slate-300 rounded text-slate-700">取消</button>
-                                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">创建</button>
+                                <button type="button" onClick={() => setIsWorkshopModalOpen(false)} className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors">取消</button>
+                                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm">创建</button>
                             </div>
                         </form>
                     </div>
