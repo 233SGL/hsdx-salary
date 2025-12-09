@@ -23,11 +23,29 @@ jobs:
       run: npm ci
       
     - name: Run Server and Tests
-      # Start server in background, wait for it, then run tests
+      # Start server in background, wait for it, then run tests (主动健康检查并打印日志)
       run: |
-        npm run server &
-        sleep 5
+        # 启动后端服务并重定向日志
+        npm run server > server.log 2>&1 &
+
+        # 最多等待 60 秒，轮询健康接口或常用端点
+        for i in $(seq 1 60); do
+          if curl -sSf http://localhost:3000/api/health >/dev/null 2>&1 || curl -sSf http://localhost:3000/api/weaving/machines >/dev/null 2>&1; then
+            echo "Server is up"
+            break
+          fi
+          echo "Waiting for server... ($i/60)"
+          sleep 1
+        done
+
+        # 如果服务仍不可达，输出后端日志并失败以便 CI 暴露问题
+        if ! curl -sSf http://localhost:3000/api/weaving/machines >/dev/null 2>&1; then
+          echo "Server failed to start. Dumping server.log:"
+          tail -n 200 server.log || true
+          exit 1
+        fi
+
+        # 运行测试
         npm test
       env:
         DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        # Add other env vars if needed
