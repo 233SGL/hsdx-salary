@@ -32,7 +32,7 @@ interface DataContextType {
   currentDate: { year: number; month: number };
   /** 设置当前年月 */
   setCurrentDate: (date: { year: number; month: number }) => void;
-  
+
   // ========== 核心数据 ==========
   /** 当前月度数据（包含参数和员工记录） */
   currentData: MonthlyData;
@@ -44,13 +44,13 @@ interface DataContextType {
   systemUsers: SystemUser[];
   /** 全局设置 */
   settings: GlobalSettings;
-  
+
   // ========== 状态标志 ==========
   /** 是否正在加载数据 */
   isLoading: boolean;
   /** 是否正在保存数据 */
   isSaving: boolean;
-  
+
   // ========== 月度数据操作 ==========
   /** 更新月度参数 */
   updateParams: (params: Partial<MonthlyData['params']>) => void;
@@ -65,7 +65,7 @@ interface DataContextType {
 
   // ========== 员工管理 ==========
   /** 添加员工 */
-  addEmployee: (emp: Omit<Employee, 'id'>) => Promise<void>;
+  addEmployee: (emp: Omit<Employee, 'id'>) => Promise<Employee>;
   /** 更新员工信息 */
   updateEmployee: (emp: Employee) => Promise<void>;
   /** 删除员工（硬删除） */
@@ -96,6 +96,10 @@ interface DataContextType {
   // ========== 设置管理 ==========
   /** 更新全局设置 */
   updateSettings: (settings: Partial<GlobalSettings>) => Promise<void>;
+
+  // ========== 数据刷新 ==========
+  /** 手动刷新所有数据 */
+  refreshData: () => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -184,8 +188,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           if (existingData) {
             // Sync new employees into existing month
             const existingIds = new Set(existingData.records.map(r => r.employeeId));
-            // Filter out Weaving employees (ws_weaving) as they have their own calculation module
-            const activeEmps = employees.filter(e => e.status !== 'terminated' && e.workshopId !== 'ws_weaving');
+            // STRICTLY Filter for new records: Only 'ws_styling' and active.
+            const activeEmps = employees.filter(e =>
+              e.status !== 'terminated' &&
+              e.workshopId === 'ws_styling'
+            );
 
             const newRecords = activeEmps
               .filter(e => !existingIds.has(e.id))
@@ -209,8 +216,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               })
               .filter(r => {
                 const emp = employees.find(e => e.id === r.employeeId);
-                // Filter out if employee not found, or is weaving, or is terminated
-                return emp && emp.workshopId !== 'ws_weaving' && emp.status !== 'terminated';
+                // STRICTLY Filter: Keep content only if employee exists, is 'ws_styling', and NOT terminated.
+                // This cleans up historical mistakes (e.g. if a Weaving employee got in).
+                return emp && emp.workshopId === 'ws_styling' && emp.status !== 'terminated';
               });
 
             const mergedData = {
@@ -225,8 +233,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
           } else {
             // Create new
-            // Filter out Weaving employees (ws_weaving)
-            const activeEmps = employees.filter(e => e.status !== 'terminated' && e.workshopId !== 'ws_weaving');
+            // STRICTLY Filter: Only include 'ws_styling' employees.
+            // Exclude terminated employees.
+            // This prevents 'ws_weaving' or any other custom workshop employees from entering the Styling calculation.
+            const activeEmps = employees.filter(e =>
+              e.status !== 'terminated' &&
+              e.workshopId === 'ws_styling'
+            );
             const newData: MonthlyData = {
               id: `${year}-${String(month).padStart(2, '0')}`,
               params: { ...DEFAULT_PARAMS, year, month },
@@ -423,7 +436,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.error(`[DataContext] 尝试删除核心工段被阻止: ${targetWs.name} (${targetWs.code})`);
       return; // 静默阻止，前端已有提示
     }
-    
+
     const newWorkshops = workshops.filter(w => w.id !== id);
     setWorkshops(newWorkshops);
     setIsSaving(true);
@@ -438,6 +451,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const saved = await db.createEmployee(newEmp);
       setEmployees(prev => [...prev, saved]);
+      return saved;
     } finally {
       setIsSaving(false);
     }
@@ -563,6 +577,31 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(false);
   };
 
+  // 手动刷新所有数据
+  const refreshData = async () => {
+    setIsSaving(true);
+    try {
+      const emps = await db.getEmployees();
+      const users = await db.getSystemUsers();
+      const sets = await db.getSettings();
+      const ws = await db.getWorkshops();
+      setEmployees(emps);
+      setSystemUsers(users);
+      setSettings(sets);
+      setWorkshops(ws);
+
+      // 也刷新当前月度数据
+      const monthData = await db.getMonthlyData(currentDate.year, currentDate.month);
+      if (monthData) {
+        setCurrentData(monthData);
+      }
+    } catch (err) {
+      console.error('刷新数据失败:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const safeData = currentData || {
     id: 'loading',
     params: { ...DEFAULT_PARAMS, year: currentDate.year, month: currentDate.month },
@@ -597,7 +636,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       addSystemUser,
       updateSystemUser,
       deleteSystemUser,
-      updateSettings
+      updateSettings,
+      refreshData
     }}>
       {children}
     </DataContext.Provider>

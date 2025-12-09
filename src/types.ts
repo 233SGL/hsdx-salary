@@ -329,3 +329,9 @@ export interface StorageStats {
   employeeCount: number;
   lastBackup?: string;
 }
+
+export interface BackupFile {
+  filename: string;
+  size: number;
+  createdAt: string;
+}

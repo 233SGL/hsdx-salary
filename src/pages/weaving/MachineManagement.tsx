@@ -109,9 +109,9 @@ const MachineCard: React.FC<MachineCardProps> = ({ machine, onStatusChange, onEd
       {/* 状态指示灯 */}
       <div className="absolute top-4 right-4">
         <div className={`w-3 h-3 rounded-full ${machine.status === 'running' ? 'bg-emerald-500 animate-pulse' :
-            machine.status === 'threading' ? 'bg-amber-500' :
-              machine.status === 'maintenance' ? 'bg-blue-500' :
-                'bg-slate-400'
+          machine.status === 'threading' ? 'bg-amber-500' :
+            machine.status === 'maintenance' ? 'bg-blue-500' :
+              'bg-slate-400'
           }`} />
       </div>
 
@@ -160,8 +160,8 @@ const MachineCard: React.FC<MachineCardProps> = ({ machine, onStatusChange, onEd
             key={status}
             onClick={() => onStatusChange(status)}
             className={`flex-1 py-1.5 text-xs rounded-lg font-medium transition-all ${machine.status === status
-                ? `${STATUS_CONFIG[status].bgClass} ${STATUS_CONFIG[status].textClass}`
-                : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
+              ? `${STATUS_CONFIG[status].bgClass} ${STATUS_CONFIG[status].textClass}`
+              : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
               }`}
           >
             {STATUS_CONFIG[status].label}
@@ -208,8 +208,8 @@ const EditModal: React.FC<EditModalProps> = ({ machine, onClose, onSave }) => {
   if (!machine) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl w-full max-w-md m-4 overflow-hidden">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md m-4 overflow-hidden animate-fade-in-up">
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-slate-800">编辑 {machine.name}</h3>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg" aria-label="关闭" title="关闭">

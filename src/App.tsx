@@ -45,6 +45,11 @@ import { MonthlySummary } from './pages/weaving/MonthlySummary';
 import { BonusCalculation } from './pages/weaving/BonusCalculation';
 import { MachineManagement } from './pages/weaving/MachineManagement';
 import { ProductManagement } from './pages/weaving/ProductManagement';
+// 后台管理页面
+import { AdminDashboard } from './pages/admin/Dashboard';
+import { AuditLogs } from './pages/admin/AuditLogs';
+import { DatabaseViewer } from './pages/admin/DatabaseViewer';
+import { AdminGuard } from './components/AdminGuard';
 import { Menu, Loader2 } from 'lucide-react';
 import { getDefaultRoute } from './utils/routeHelpers';
 
@@ -201,6 +206,29 @@ const App: React.FC = () => {
               </Layout>
             } />
 
+            {/* Admin Routes - 后台管理（需要二次验证） */}
+            <Route path="/admin" element={
+              <Layout>
+                <AdminGuard>
+                  <AdminDashboard />
+                </AdminGuard>
+              </Layout>
+            } />
+            <Route path="/admin/logs" element={
+              <Layout>
+                <AdminGuard>
+                  <AuditLogs />
+                </AdminGuard>
+              </Layout>
+            } />
+            <Route path="/admin/database" element={
+              <Layout>
+                <AdminGuard>
+                  <DatabaseViewer />
+                </AdminGuard>
+              </Layout>
+            } />
+
             {/* System Routes */}
             <Route path="/employees" element={
               <Layout>
@@ -210,7 +238,9 @@ const App: React.FC = () => {
 
             <Route path="/settings" element={
               <Layout>
-                <Settings />
+                <AdminGuard>
+                  <Settings />
+                </AdminGuard>
               </Layout>
             } />
 

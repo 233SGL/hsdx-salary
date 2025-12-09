@@ -143,6 +143,29 @@ export class DatabaseService {
   }
 
   /**
+   * 获取用户头信息用于审计日志
+   * 从 sessionStorage 获取当前用户信息
+   */
+  private getUserHeaders(): Record<string, string> {
+    try {
+      // 尝试从全局状态获取用户信息（由登录时设置）
+      const userId = sessionStorage.getItem('user_id') || 'system';
+      const userName = sessionStorage.getItem('user_name') || 'System';
+      
+      // 对中文字符进行 URI 编码，符合 HTTP 头部标准
+      return {
+        'x-user-id': userId,
+        'x-user-name': encodeURIComponent(userName)
+      };
+    } catch {
+      return {
+        'x-user-id': 'system',
+        'x-user-name': 'System'
+      };
+    }
+  }
+
+  /**
    * 连接到后端服务
    * 通过健康检查接口验证连接状态
    * @returns 连接是否成功
@@ -281,7 +304,10 @@ export class DatabaseService {
     await this.ensureConnection();
     const response = await fetch(`${API_BASE}/users`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getUserHeaders()
+      },
       body: JSON.stringify({
         ...user,
         displayName: user.displayName,
@@ -303,7 +329,10 @@ export class DatabaseService {
     await this.ensureConnection();
     const response = await fetch(`${API_BASE}/users/${user.id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getUserHeaders()
+      },
       body: JSON.stringify({
         username: user.username,
         displayName: user.displayName,
@@ -326,7 +355,8 @@ export class DatabaseService {
   public async deleteSystemUserRemote(id: string): Promise<void> {
     await this.ensureConnection();
     const response = await fetch(`${API_BASE}/users/${id}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: this.getUserHeaders()
     });
     if (!response.ok && response.status !== 204) throw new Error('Failed to delete system user');
   }
@@ -381,15 +411,27 @@ export class DatabaseService {
       expectedDailyHours: employee.expectedDailyHours
     };
 
-    const response = await fetch(`${API_BASE}/employees`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    try {
+      const response = await fetch(`${API_BASE}/employees`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.getUserHeaders()
+        },
+        body: JSON.stringify(payload)
+      });
 
-    if (!response.ok) throw new Error('Failed to create employee');
-    const data = await response.json();
-    return this.mapEmployeeRow(data);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Create employee error response:', errorText);
+        throw new Error(`Failed to create employee: ${response.status}`);
+      }
+      const data = await response.json();
+      return this.mapEmployeeRow(data);
+    } catch (error) {
+      console.error('Error creating employee:', error);
+      throw error;
+    }
   }
 
   public async saveEmployees(employees: Employee[]): Promise<void> {
@@ -413,21 +455,47 @@ export class DatabaseService {
       expectedDailyHours: updatedEmp.expectedDailyHours
     };
 
-    const response = await fetch(`${API_BASE}/employees/${updatedEmp.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(dbEmp)
-    });
-    if (!response.ok) throw new Error('Failed to update employee');
+    try {
+      const response = await fetch(`${API_BASE}/employees/${updatedEmp.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.getUserHeaders()
+        },
+        body: JSON.stringify(dbEmp)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Update employee error response:', errorText);
+        throw new Error(`Failed to update employee: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Error updating employee:', error);
+      throw error;
+    }
   }
 
   public async deleteEmployee(employeeId: string): Promise<void> {
     await this.ensureConnection();
-    const response = await fetch(`${API_BASE}/employees/${employeeId}`, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' }
-    });
-    if (!response.ok) throw new Error('Failed to delete employee');
+    try {
+      const response = await fetch(`${API_BASE}/employees/${employeeId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.getUserHeaders()
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Delete employee error response:', errorText);
+        throw new Error(`Failed to delete employee: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Error deleting employee:', error);
+      throw error;
+    }
   }
 
   // === Monthly Data ===
@@ -588,6 +656,52 @@ export class DatabaseService {
 
   private async ensureConnection() {
     if (!this.isConnected) await this.connect();
+  }
+
+  // ========================================
+  // 数据库备份与恢复
+  // ========================================
+
+  public async getBackups(): Promise<any[]> {
+    await this.ensureConnection();
+    try {
+      const response = await fetch(`${API_BASE}/admin/backups`, {
+        headers: this.getUserHeaders()
+      });
+      if (!response.ok) throw new Error('Failed to fetch backups');
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching backups:', error);
+      return [];
+    }
+  }
+
+  public async createBackup(): Promise<{ success: boolean, filename: string }> {
+    await this.ensureConnection();
+    const response = await fetch(`${API_BASE}/admin/backups`, {
+      method: 'POST',
+      headers: this.getUserHeaders()
+    });
+    if (!response.ok) throw new Error('Failed to create backup');
+    return await response.json();
+  }
+
+  public async deleteBackup(filename: string): Promise<void> {
+    await this.ensureConnection();
+    const response = await fetch(`${API_BASE}/admin/backups/${filename}`, {
+      method: 'DELETE',
+      headers: this.getUserHeaders()
+    });
+    if (!response.ok) throw new Error('Failed to delete backup');
+  }
+
+  public async restoreBackup(filename: string): Promise<void> {
+    await this.ensureConnection();
+    const response = await fetch(`${API_BASE}/admin/restore/${filename}`, {
+      method: 'POST',
+      headers: this.getUserHeaders()
+    });
+    if (!response.ok) throw new Error('Failed to restore backup');
   }
 }
 

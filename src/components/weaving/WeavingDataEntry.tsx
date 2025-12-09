@@ -19,7 +19,8 @@ export const WeavingDataEntry: React.FC<WeavingDataEntryProps> = ({
     };
 
     const handleCalculatorConfirm = (total: number) => {
-        handleChange('equivalentOutput', total);
+        // 保留两位小数
+        handleChange('equivalentOutput', Math.round(total * 100) / 100);
         setIsCalculatorOpen(false);
     };
 
@@ -60,8 +61,9 @@ export const WeavingDataEntry: React.FC<WeavingDataEntryProps> = ({
                     <div className="relative flex gap-2">
                         <input
                             type="number"
-                            value={data.equivalentOutput || ''}
-                            onChange={(e) => handleChange('equivalentOutput', parseFloat(e.target.value))}
+                            step="0.01"
+                            value={data.equivalentOutput ? Number(data.equivalentOutput.toFixed(2)) : ''}
+                            onChange={(e) => handleChange('equivalentOutput', Math.round(parseFloat(e.target.value) * 100) / 100 || 0)}
                             className="input flex-1"
                             placeholder="点击右侧计算器辅助计算"
                         />

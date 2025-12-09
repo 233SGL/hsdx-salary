@@ -56,11 +56,43 @@ export const Login: React.FC = () => {
                 setFailedAttempts(0);
                 return;
             }
+
+            // 记录登录成功
+            try {
+                await fetch('/api/admin/login-record', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: selectedUser.id,
+                        username: selectedUser.displayName,
+                        action: 'LOGIN'
+                    })
+                });
+            } catch (err) {
+                console.error('记录登录失败:', err);
+            }
+
             login(selectedUser);
             navigate(defaultRoute);
         } else {
             const newAttempts = failedAttempts + 1;
             setFailedAttempts(newAttempts);
+
+            // 记录登录失败
+            try {
+                await fetch('/api/admin/login-record', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: selectedUser.id,
+                        username: selectedUser.displayName,
+                        action: 'LOGIN_FAILED'
+                    })
+                });
+            } catch (err) {
+                console.error('记录登录失败:', err);
+            }
+
             if (newAttempts >= 3) {
                 setError('PIN 码错误，如需修改密码，请联系管理员');
             } else {
@@ -120,7 +152,7 @@ export const Login: React.FC = () => {
 
                     {!selectedUser ? (
                         // 步骤 1: 用户列表
-                        <div className="animate-fade-in">
+                        <div className="animate-fade-in-up">
                             <h2 className="text-2xl font-bold text-slate-800 mb-2">欢迎回来</h2>
                             <p className="text-slate-500 mb-8">请选择您的登录账号</p>
 
@@ -155,7 +187,7 @@ export const Login: React.FC = () => {
                         </div>
                     ) : (
                         // 步骤 2: PIN 输入
-                        <div className="animate-fade-in">
+                        <div className="animate-fade-in-up">
                             <button
                                 onClick={() => setSelectedUser(null)}
                                 className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 

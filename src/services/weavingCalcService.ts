@@ -15,11 +15,11 @@
  * @version 1.0.0
  */
 
-import { 
-    WeavingConfig, 
-    WeavingMonthlyData, 
+import {
+    WeavingConfig,
+    WeavingMonthlyData,
     WeavingCalculationResult,
-    DEFAULT_WEAVING_CONFIG 
+    DEFAULT_WEAVING_CONFIG
 } from '../weavingTypes';
 
 // ========================================
@@ -169,9 +169,9 @@ export const calculateMachineEquivalent = (data: MachineProductionData): Machine
     const outputCoef = calculateOutputCoefficient(data.weftDensity);
     const widthCoef = calculateWidthCoefficient(data.machineWidth);
     const speedCoef = getSpeedCoefficient(data.speedType);
-    
+
     const equivalentOutput = data.actualOutput * outputCoef * widthCoef * speedCoef;
-    
+
     return {
         machineId: data.machineId,
         actualOutput: data.actualOutput,
@@ -194,7 +194,7 @@ export const calculateTotalEquivalent = (machineData: MachineProductionData[]): 
 } => {
     const machineResults = machineData.map(calculateMachineEquivalent);
     const totalEquivalent = machineResults.reduce((sum, r) => sum + r.equivalentOutput, 0);
-    
+
     return {
         totalEquivalent,
         machineResults
@@ -226,33 +226,39 @@ export const calculateQualityBonusCoef = (
         activeMachines,        // 有效机台数
         actualOperators        // 实际操作工人数
     } = monthlyData;
-    
+
     const {
         netFormationBenchmark, // 成网率基准 68%
         targetEquivalentOutput, // 单机目标等效产量 6450
         operatorQuota          // 操作工定员 24
     } = config;
-    
+
     // 成网率超标部分
     const netFormationExcess = (netFormationRate - netFormationBenchmark) / 100;
-    
+
     // 如果成网率未达标，系数为0
     if (netFormationExcess <= 0) return 0;
-    
     // 目标总等效产量
     const targetTotalOutput = targetEquivalentOutput * activeMachines;
     if (targetTotalOutput <= 0 || actualOperators <= 0) return 0;
-    
-    // 产量完成率
-    const outputRate = equivalentOutput / targetTotalOutput;
-    
-    // 人员效率系数
-    const staffEfficiency = operatorQuota / actualOperators;
-    
-    // 奖励系数 = (成网率超标×100÷30) × 产量完成率 × 人员效率
-    const bonusCoef = (netFormationExcess * 100 / 30) * outputRate * staffEfficiency;
-    
-    return bonusCoef;
+
+    // 奖励系数 = (成网率-68%)×100÷30 × 当月织造等效产量÷(单机台目标等效产量×有效机台总数) ÷ 操作工实际人数 × 操作工定员
+    // 提取文档公式中的变量
+    const R = netFormationRate; // 成网率
+    const B = netFormationBenchmark; // 68
+    const O = equivalentOutput; // 当月织造等效产量
+    const T = targetEquivalentOutput; // 单机目标等效产量 6450
+    const M = activeMachines; // 有效机台总数
+    const P = actualOperators; // 操作工实际人数
+    const Q = operatorQuota; // 操作工定员 24
+
+    // 如果成网率未达标，或者分母为0，则系数为0
+    if (R < B || T * M === 0 || P === 0) return 0;
+
+    // 应用公式
+    const bonusCoef = ((R - B) * 100 / 30) * (O / (T * M)) / P * Q;
+
+    return Math.max(0, bonusCoef);
 };
 
 /**
@@ -271,8 +277,17 @@ export const calculateOperationBonus = (
     benchmark: number = 72,
     bonusPerPercent: number = 500
 ): number => {
+    // 运转率奖总数 = （当月织机运转率 - 72%）× 100 × 500
+    // 即：每提高1个百分点奖500元
+
+    // 如果输入的是整数（如75表示75%），则直接减去基准值
     const excess = operationRate - benchmark;
+
     if (excess <= 0) return 0;
+
+    // 假设 operationRate 是 73 (73%)，benchmark 是 72 (72%)
+    // excess = 1
+    // 奖金 = 1 * 500 = 500
     return excess * bonusPerPercent;
 };
 
@@ -297,50 +312,57 @@ export const calculateWeavingBonus = (
     // ========== 1. 计算成网率质量奖 ==========
     const qualityBonusCoef = calculateQualityBonusCoef(monthlyData, config);
     const qualityBonusTotal = qualityBonusCoef * config.avgTargetBonus * config.adminTeamSize;
-    
+
     // ========== 2. 计算织机运转率奖 ==========
     const operationBonusTotal = calculateOperationBonus(
         monthlyData.operationRate,
         config.operationRateBenchmark,
         config.operationRateBonusUnit
     );
-    
+
     // ========== 3. 计算管理员班总奖金池 ==========
     const totalBonusPool = qualityBonusTotal + operationBonusTotal;
-    
-    // ========== 4. 二次分配 ==========
-    // 总系数 = 班长系数(1.3) + 班员系数(1.0) × 班员人数(2) = 3.3
-    const memberCount = config.adminTeamSize - 1; // 班员人数 = 总人数 - 1个班长
+
+    // ========== 4. 二次分配方案 ==========
+    // 班长系数为1.3，班员系数为1，即总系数为3.3 (1.3 + 1.0 + 1.0)
+    // 管理员班长奖金 = 管理员班总奖金 ÷ 总系数（3.3）× 班长系数（1.3）
+    // 管理员班员奖金 = 管理员班总奖金 ÷ 总系数（3.3）× 班长系数（1）
+
+    // 假设配置: adminTeamSize=3, leaderCoef=1.3, memberCoef=1.0
+    const memberCount = config.adminTeamSize > 0 ? config.adminTeamSize - 1 : 0; // 扣除1位班长
     const totalCoef = config.leaderCoef + (config.memberCoef * memberCount);
-    
-    // 班长奖金 = 总奖金 ÷ 总系数 × 班长系数
-    const leaderBonus = totalBonusPool / totalCoef * config.leaderCoef;
-    
-    // 班员奖金 = 总奖金 ÷ 总系数 × 班员系数
-    const memberBonus = totalBonusPool / totalCoef * config.memberCoef;
-    
+
+    // 确保分母不为0
+    const safeTotalCoef = totalCoef > 0 ? totalCoef : 1;
+
+    // 班长奖金
+    const leaderBonus = totalBonusPool / safeTotalCoef * config.leaderCoef;
+
+    // 班员奖金 (单人)
+    const memberBonus = totalBonusPool / safeTotalCoef * config.memberCoef;
+
     // ========== 5. 计算最终应发积分 ==========
     // 按出勤比例计算基本工资
     const attendanceRate = monthlyData.attendanceDays / 26; // 假设满勤26天
     const leaderBasePay = config.leaderBaseSalary * Math.min(attendanceRate, 1);
     const memberBasePay = config.memberBaseSalary * Math.min(attendanceRate, 1);
-    
+
     // 应发总积分 = 基本工资 + 奖金
     const leaderTotalWage = leaderBasePay + leaderBonus;
     const memberTotalWage = memberBasePay + memberBonus;
-    
+
     return {
         // 奖金池计算结果
         qualityBonusCoef,
         qualityBonusTotal,
         operationBonusTotal,
         totalBonusPool,
-        
+
         // 分配结果
         totalCoef,
         leaderBonus,
         memberBonus,
-        
+
         // 应发积分
         leaderTotalWage,
         memberTotalWage
@@ -355,20 +377,20 @@ export const calculateWeavingBonus = (
  * 计算单机100%效率下的日等效产能
  * 
  * 公式（基于H2机型，8.5米宽度）：
- * 日产能 = 41(纬/分钟) ÷ 13(基准纬密) × 60 × 24 ÷ 100 × 7.7(有效宽度) ≈ 358㎡
+ * 日产能 = 42(纬/分钟) ÷ 13(基准纬密) × 60 × 24 ÷ 100 × 7.7(有效宽度) ≈ 358㎡
  * 
- * @param speedWeftPerMin - 每分钟纬数（H2=41, H5≈23）
+ * @param speedWeftPerMin - 每分钟纬数（H2=42, H5≈23）
  * @param effectiveWidth - 有效幅宽（米）
  * @param baseWeftDensity - 基准纬密
  * @returns 日等效产能（平方米）
  */
 export const calculateDailyCapacity = (
-    speedWeftPerMin: number = 41,
+    speedWeftPerMin: number = 42,
     effectiveWidth: number = 7.7,
     baseWeftDensity: number = BASE_WEFT_DENSITY
 ): number => {
-    // 每分钟产出面积 = (纬数/纬密) × 有效宽度 ÷ 100（厘米转米）
-    // 日产能 = 每分钟产出 × 60分钟 × 24小时
+    // 严格按照文档公式计算
+    // 42 ÷ 13 × 60 × 24 ÷ 100 * 7.7
     return (speedWeftPerMin / baseWeftDensity) * 60 * 24 / 100 * effectiveWidth;
 };
 

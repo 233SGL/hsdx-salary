@@ -20,6 +20,9 @@ import express from 'express';
 import pg from 'pg';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import fs from 'fs/promises';
+import path from 'path';
+import cron from 'node-cron';
 
 // 加载环境变量配置
 dotenv.config({ path: '.env.server' });
@@ -123,6 +126,12 @@ app.post('/api/employees', async (req, res) => {
       'INSERT INTO employees (id, name, gender, workshop_id, department, position, join_date, standard_base_score, status, phone, expected_daily_hours, base_salary, coefficient) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *',
       [req.body.id, req.body.name, req.body.gender, req.body.workshopId, req.body.department, req.body.position, req.body.joinDate, req.body.standardBaseScore, req.body.status, req.body.phone, req.body.expectedDailyHours, req.body.baseSalary || 0, req.body.coefficient || 1.0]
     );
+
+    // 记录审计日志
+    const userId = req.headers['x-user-id'] || 'system';
+    const userName = decodeUserName(req.headers['x-user-name']) || 'System';
+    await logAudit(userId, userName, 'CREATE', 'employee', req.body.id, req.body.name, req.body, req);
+
     res.json(rows[0]);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -135,6 +144,12 @@ app.put('/api/employees/:id', async (req, res) => {
       'UPDATE employees SET name=$2, gender=$3, workshop_id=$4, department=$5, position=$6, join_date=$7, standard_base_score=$8, status=$9, phone=$10, expected_daily_hours=$11, base_salary=$12, coefficient=$13 WHERE id=$1 RETURNING *',
       [req.params.id, req.body.name, req.body.gender, req.body.workshopId, req.body.department, req.body.position, req.body.joinDate, req.body.standardBaseScore, req.body.status, req.body.phone, req.body.expectedDailyHours, req.body.baseSalary || 0, req.body.coefficient || 1.0]
     );
+
+    // 记录审计日志
+    const userId = req.headers['x-user-id'] || 'system';
+    const userName = decodeUserName(req.headers['x-user-name']) || 'System';
+    await logAudit(userId, userName, 'UPDATE', 'employee', req.params.id, req.body.name, req.body, req);
+
     res.json(rows[0]);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -143,7 +158,17 @@ app.put('/api/employees/:id', async (req, res) => {
 
 app.delete('/api/employees/:id', async (req, res) => {
   try {
+    // 先查询员工信息用于日志
+    const { rows: empRows } = await pool.query('SELECT name FROM employees WHERE id = $1', [req.params.id]);
+    const empName = empRows[0]?.name || req.params.id;
+
     await pool.query('DELETE FROM employees WHERE id = $1', [req.params.id]);
+
+    // 记录审计日志
+    const userId = req.headers['x-user-id'] || 'system';
+    const userName = decodeUserName(req.headers['x-user-name']) || 'System';
+    await logAudit(userId, userName, 'DELETE', 'employee', req.params.id, empName, null, req);
+
     res.status(204).send();
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -271,6 +296,12 @@ app.post('/api/users', async (req, res) => {
         JSON.stringify(permissions)
       ]
     );
+
+    // 记录审计日志
+    const userId = req.headers['x-user-id'] || 'system';
+    const userName = decodeUserName(req.headers['x-user-name']) || 'System';
+    await logAudit(userId, userName, 'CREATE', 'user', id, displayName, { username, role, scopes, permissions }, req);
+
     res.status(201).json(rows[0]);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -315,6 +346,12 @@ app.put('/api/users/:id', async (req, res) => {
       ]
     );
     if (!rows[0]) return res.status(404).json({ error: 'User not found' });
+
+    // 记录审计日志
+    const userId = req.headers['x-user-id'] || 'system';
+    const userName = decodeUserName(req.headers['x-user-name']) || 'System';
+    await logAudit(userId, userName, 'UPDATE', 'user', req.params.id, displayName, { username, role, scopes, permissions }, req);
+
     res.json(rows[0]);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -323,7 +360,17 @@ app.put('/api/users/:id', async (req, res) => {
 
 app.delete('/api/users/:id', async (req, res) => {
   try {
+    // 先查询用户信息用于日志
+    const { rows: userRows } = await pool.query('SELECT display_name FROM system_users WHERE id = $1', [req.params.id]);
+    const targetName = userRows[0]?.display_name || req.params.id;
+
     await pool.query('DELETE FROM system_users WHERE id = $1', [req.params.id]);
+
+    // 记录审计日志
+    const userId = req.headers['x-user-id'] || 'system';
+    const userName = decodeUserName(req.headers['x-user-name']) || 'System';
+    await logAudit(userId, userName, 'DELETE', 'user', req.params.id, targetName, null, req);
+
     res.status(204).send();
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1057,6 +1104,635 @@ app.post('/api/weaving/machine-records', async (req, res) => {
     } finally {
       client.release();
     }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ========================================
+// 后台管理 API
+// ========================================
+
+/**
+ * 解码用户名的辅助函数
+ * 处理前端传递的 URI 编码的中文字符
+ */
+function decodeUserName(userName) {
+  try {
+    // 如果用户名已经是编码的，尝试解码
+    return decodeURIComponent(userName);
+  } catch {
+    // 如果解码失败（可能已经解码过了），返回原始值
+    return userName;
+  }
+}
+
+/**
+ * 记录审计日志的辅助函数
+ */
+async function logAudit(userId, username, action, targetType, targetId, targetName, details, req) {
+  try {
+    await pool.query(
+      `INSERT INTO audit_logs (user_id, username, action, target_type, target_id, target_name, details, ip_address, user_agent)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [userId, username, action, targetType, targetId, targetName, JSON.stringify(details),
+        req?.ip || req?.headers?.['x-forwarded-for'] || 'unknown',
+        req?.headers?.['user-agent'] || 'unknown']
+    );
+  } catch (err) {
+    console.error('审计日志记录失败:', err.message);
+  }
+}
+
+/**
+ * 记录登录历史的辅助函数
+ */
+async function logLogin(userId, username, action, req) {
+  try {
+    await pool.query(
+      `INSERT INTO login_history (user_id, username, action, ip_address, user_agent)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [userId, username, action,
+        req?.ip || req?.headers?.['x-forwarded-for'] || 'unknown',
+        req?.headers?.['user-agent'] || 'unknown']
+    );
+  } catch (err) {
+    console.error('登录历史记录失败:', err.message);
+  }
+}
+
+/**
+ * GET /api/admin/audit-logs
+ * 获取操作日志列表（支持分页和筛选）
+ */
+app.get('/api/admin/audit-logs', async (req, res) => {
+  try {
+    const { page = 1, limit = 50, action, targetType, userId, startDate, endDate } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    let whereClause = '';
+    const params = [];
+    let paramIndex = 1;
+
+    if (action) {
+      whereClause += ` AND action = $${paramIndex++}`;
+      params.push(action);
+    }
+    if (targetType) {
+      whereClause += ` AND target_type = $${paramIndex++}`;
+      params.push(targetType);
+    }
+    if (userId) {
+      whereClause += ` AND user_id = $${paramIndex++}`;
+      params.push(userId);
+    }
+    if (startDate) {
+      whereClause += ` AND created_at >= $${paramIndex++}`;
+      params.push(startDate);
+    }
+    if (endDate) {
+      whereClause += ` AND created_at <= $${paramIndex++}`;
+      params.push(endDate);
+    }
+
+    const countQuery = `SELECT COUNT(*) FROM audit_logs WHERE 1=1 ${whereClause}`;
+    const dataQuery = `SELECT * FROM audit_logs WHERE 1=1 ${whereClause} ORDER BY created_at DESC LIMIT $${paramIndex++} OFFSET $${paramIndex}`;
+
+    const [countResult, dataResult] = await Promise.all([
+      pool.query(countQuery, params),
+      pool.query(dataQuery, [...params, parseInt(limit), offset])
+    ]);
+
+    res.json({
+      total: parseInt(countResult.rows[0].count),
+      page: parseInt(page),
+      limit: parseInt(limit),
+      data: dataResult.rows
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/admin/login-history
+ * 获取登录历史列表
+ */
+app.get('/api/admin/login-history', async (req, res) => {
+  try {
+    const { page = 1, limit = 50, userId } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    let whereClause = '';
+    const params = [];
+
+    if (userId) {
+      whereClause = ' WHERE user_id = $1';
+      params.push(userId);
+    }
+
+    const countQuery = `SELECT COUNT(*) FROM login_history ${whereClause}`;
+    const dataQuery = `SELECT * FROM login_history ${whereClause} ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+
+    const [countResult, dataResult] = await Promise.all([
+      pool.query(countQuery, params),
+      pool.query(dataQuery, [...params, parseInt(limit), offset])
+    ]);
+
+    res.json({
+      total: parseInt(countResult.rows[0].count),
+      page: parseInt(page),
+      limit: parseInt(limit),
+      data: dataResult.rows
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/admin/users-online
+ * 获取当前在线用户（基于活跃会话）
+ */
+app.get('/api/admin/users-online', async (req, res) => {
+  try {
+    // 5分钟内有活动的用户视为在线
+    const { rows } = await pool.query(`
+      SELECT DISTINCT ON (user_id) user_id, username, ip_address, last_activity, created_at
+      FROM active_sessions
+      WHERE last_activity > NOW() - INTERVAL '5 minutes'
+      ORDER BY user_id, last_activity DESC
+    `);
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/admin/verify
+ * 验证管理员身份（使用统一的管理员账户密码）
+ */
+app.post('/api/admin/verify', async (req, res) => {
+  try {
+    const { userId, password } = req.body;
+
+    if (!userId || !password) {
+      return res.status(400).json({ error: '缺少必要参数' });
+    }
+
+    // 获取请求用户信息
+    const { rows: userRows } = await pool.query(
+      'SELECT id, username FROM system_users WHERE id = $1',
+      [userId]
+    );
+
+    if (userRows.length === 0) {
+      return res.json({ verified: false, error: '用户不存在' });
+    }
+
+    const requestUser = userRows[0];
+
+    // 获取统一的管理员账户密码（使用 admin 账户的 PIN 码）
+    const { rows: adminRows } = await pool.query(
+      "SELECT pin_code FROM system_users WHERE username = 'admin' LIMIT 1"
+    );
+
+    if (adminRows.length === 0) {
+      return res.json({ verified: false, error: '管理员账户不存在' });
+    }
+
+    const adminPinCode = adminRows[0].pin_code;
+
+    // 验证输入的密码是否与管理员密码一致
+    if (adminPinCode !== password) {
+      // 记录失败的验证尝试
+      await logLogin(userId, requestUser.username, 'ADMIN_VERIFY_FAILED', req);
+      return res.json({ verified: false, error: '管理员密码错误' });
+    }
+
+    // 验证成功，记录日志
+    await logAudit(userId, requestUser.username, 'ADMIN_ACCESS', 'admin', null, '敏感页面访问',
+      { action: '管理员密码验证通过' }, req);
+
+    res.json({ verified: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/admin/login-record
+ * 记录登录历史（登录成功/失败）
+ */
+app.post('/api/admin/login-record', async (req, res) => {
+  try {
+    const { userId, username, action } = req.body;
+
+    if (!userId || !username || !action) {
+      return res.status(400).json({ error: '缺少必要参数' });
+    }
+
+    // 使用 logLogin 辅助函数记录到 login_history 表
+    await logLogin(userId, username, action, req);
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+/**
+ * POST /api/admin/heartbeat
+ * 更新用户会话心跳（用于在线状态追踪）
+ */
+app.post('/api/admin/heartbeat', async (req, res) => {
+  try {
+    const { sessionId, userId, username } = req.body;
+    if (!sessionId || !userId) {
+      return res.status(400).json({ error: '缺少必要参数' });
+    }
+
+    await pool.query(`
+      INSERT INTO active_sessions (id, user_id, username, ip_address, user_agent, last_activity)
+      VALUES ($1, $2, $3, $4, $5, NOW())
+      ON CONFLICT (id) DO UPDATE SET last_activity = NOW()
+    `, [sessionId, userId, username,
+      req.ip || req.headers['x-forwarded-for'] || 'unknown',
+      req.headers['user-agent'] || 'unknown']);
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/admin/session/:sessionId
+ * 删除会话（用于登出）
+ */
+app.delete('/api/admin/session/:sessionId', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM active_sessions WHERE id = $1', [req.params.sessionId]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/admin/database/tables
+ * 获取数据库表结构信息
+ */
+app.get('/api/admin/database/tables', async (req, res) => {
+  try {
+    // 获取所有表及其列信息
+    const { rows: tables } = await pool.query(`
+      SELECT 
+        t.table_name,
+        (SELECT COUNT(*) FROM information_schema.columns c WHERE c.table_name = t.table_name) as column_count
+      FROM information_schema.tables t
+      WHERE t.table_schema = 'public' AND t.table_type = 'BASE TABLE'
+      ORDER BY t.table_name
+    `);
+
+    // 获取每个表的行数
+    const tablesWithCount = await Promise.all(tables.map(async (table) => {
+      try {
+        const { rows } = await pool.query(`SELECT COUNT(*) FROM "${table.table_name}"`);
+        return { ...table, row_count: parseInt(rows[0].count) };
+      } catch {
+        return { ...table, row_count: 0 };
+      }
+    }));
+
+    res.json(tablesWithCount);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/admin/database/tables/:tableName
+ * 获取指定表的详细结构
+ */
+app.get('/api/admin/database/tables/:tableName', async (req, res) => {
+  try {
+    const { tableName } = req.params;
+
+    // 获取列信息
+    const { rows: columns } = await pool.query(`
+      SELECT column_name, data_type, is_nullable, column_default
+      FROM information_schema.columns
+      WHERE table_name = $1
+      ORDER BY ordinal_position
+    `, [tableName]);
+
+    // 获取行数
+    const { rows: countResult } = await pool.query(`SELECT COUNT(*) FROM "${tableName}"`);
+
+    res.json({
+      tableName,
+      columns,
+      rowCount: parseInt(countResult[0].count)
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/admin/database/tables/:tableName/data
+ * 获取表数据预览（只读，限制100条）
+ */
+app.get('/api/admin/database/tables/:tableName/data', async (req, res) => {
+  try {
+    const { tableName } = req.params;
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    // 安全检查：只允许预设的表名，防止SQL注入
+    const allowedTables = [
+      'employees', 'workshops', 'system_users', 'settings',
+      'monthly_data', 'audit_logs', 'login_history', 'active_sessions',
+      'weaving_employees', 'weaving_machines', 'weaving_config',
+      'weaving_monthly_data', 'weaving_production_records', 'weaving_products'
+    ];
+
+    if (!allowedTables.includes(tableName)) {
+      return res.status(403).json({ error: '不允许访问该表' });
+    }
+
+    const { rows: countResult } = await pool.query(`SELECT COUNT(*) FROM "${tableName}"`);
+    const { rows: data } = await pool.query(
+      `SELECT * FROM "${tableName}" ORDER BY 1 LIMIT $1 OFFSET $2`,
+      [Math.min(parseInt(limit), 100), offset]
+    );
+
+    res.json({
+      total: parseInt(countResult[0].count),
+      page: parseInt(page),
+      limit: Math.min(parseInt(limit), 100),
+      data
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/admin/stats
+ * 获取系统概览统计
+ */
+app.get('/api/admin/stats', async (req, res) => {
+  try {
+    const [
+      employeeCount,
+      userCount,
+      logCount,
+      onlineCount
+    ] = await Promise.all([
+      pool.query("SELECT COUNT(*) FROM employees WHERE status != 'terminated'"),
+      pool.query("SELECT COUNT(*) FROM system_users"),
+      pool.query("SELECT COUNT(*) FROM audit_logs WHERE created_at > NOW() - INTERVAL '24 hours'"),
+      pool.query("SELECT COUNT(DISTINCT user_id) FROM active_sessions WHERE last_activity > NOW() - INTERVAL '5 minutes'")
+    ]);
+
+    res.json({
+      activeEmployees: parseInt(employeeCount.rows[0].count),
+      systemUsers: parseInt(userCount.rows[0].count),
+      logsToday: parseInt(logCount.rows[0].count),
+      onlineUsers: parseInt(onlineCount.rows[0].count)
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+// ========================================
+// 数据库备份与恢复 API
+// ========================================
+
+const BACKUP_DIR = path.join(process.cwd(), 'backups');
+
+// 确保备份目录存在
+fs.mkdir(BACKUP_DIR, { recursive: true }).catch(console.error);
+
+/**
+ * 执行全量备份
+ */
+async function performBackup(isAuto = false) {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const type = isAuto ? 'auto' : 'manual';
+  const filename = `backup-${type}-${timestamp}.json`;
+  const filepath = path.join(BACKUP_DIR, filename);
+
+  try {
+    const tables = [
+      'system_users', 'employees', 'weaving_employees',
+      'weaving_machines', 'monthly_data', 'audit_logs', 'login_history'
+    ];
+
+    // Check if workshops table exists or use static data if table missing
+    // Since original code had /api/workshops from DB, we include it if it exists.
+    // We'll wrap in try/catch for each table to be safe
+
+    const dbData = {};
+    for (const table of tables) {
+      try {
+        const { rows } = await pool.query(`SELECT * FROM ${table}`);
+        dbData[table] = rows;
+      } catch (err) {
+        console.warn(`[Backup] Skiping table ${table}: ${err.message}`);
+      }
+    }
+
+    const backupData = {
+      version: '2.5',
+      timestamp: new Date().toISOString(),
+      type,
+      data: dbData
+    };
+
+    await fs.writeFile(filepath, JSON.stringify(backupData, null, 2));
+    console.log(`[Backup] Created ${filename}`);
+
+    // 清理旧备份 (保留最近30天)
+    if (isAuto) {
+      const files = await fs.readdir(BACKUP_DIR);
+      const autoBackups = files.filter(f => f.startsWith('backup-auto-'));
+      if (autoBackups.length > 30) {
+        autoBackups.sort(); // 按时间排序，旧在前
+        const toDelete = autoBackups.slice(0, autoBackups.length - 30);
+        for (const file of toDelete) {
+          await fs.unlink(path.join(BACKUP_DIR, file));
+          console.log(`[Backup] Deleted old backup ${file}`);
+        }
+      }
+    }
+    return filename;
+  } catch (error) {
+    console.error('[Backup] Failed:', error);
+    throw error;
+  }
+}
+
+/**
+ * 恢复数据
+ */
+async function restoreBackup(filename) {
+  const filepath = path.join(BACKUP_DIR, filename);
+  try {
+    const content = await fs.readFile(filepath, 'utf-8');
+    const backup = JSON.parse(content);
+
+    if (!backup.data) throw new Error('无效的备份文件格式');
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // 清空现有数据 (注意顺序，避免外键约束)
+      // 暂时使用 CASCADE
+      const tables = Object.keys(backup.data);
+      for (const table of tables) {
+        // Simple sanitization
+        if (!/^[a-zA-Z0-9_]+$/.test(table)) continue;
+        await client.query(`TRUNCATE TABLE "${table}" CASCADE`);
+      }
+
+      // 插入数据
+      for (const [table, rows] of Object.entries(backup.data)) {
+        if (!rows || rows.length === 0) continue;
+        if (!/^[a-zA-Z0-9_]+$/.test(table)) continue;
+
+        for (const row of rows) {
+          const columns = Object.keys(row);
+          const values = Object.values(row);
+          if (columns.length === 0) continue;
+
+          const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
+          const formattedCols = columns.map(c => `"${c}"`).join(', ');
+
+          await client.query(
+            `INSERT INTO "${table}" (${formattedCols}) VALUES (${placeholders})`,
+            values
+          );
+        }
+      }
+
+      await client.query('COMMIT');
+      console.log(`[Restore] Restored from ${filename}`);
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('[Restore] Failed:', error);
+    throw error;
+  }
+}
+
+// 每天凌晨 2:00 自动备份
+cron.schedule('0 2 * * *', () => {
+  console.log('[Cron] Starting daily backup...');
+  performBackup(true);
+});
+
+/**
+ * GET /api/admin/backups
+ * 获取备份列表
+ */
+app.get('/api/admin/backups', async (req, res) => {
+  try {
+    const files = await fs.readdir(BACKUP_DIR);
+    const backups = await Promise.all(files.filter(f => f.endsWith('.json')).map(async f => {
+      const stats = await fs.stat(path.join(BACKUP_DIR, f));
+      return {
+        filename: f,
+        size: stats.size,
+        createdAt: stats.birthtime
+      };
+    }));
+    // 按时间倒序
+    backups.sort((a, b) => b.createdAt - a.createdAt);
+    res.json(backups);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/admin/backups
+ * 创建新备份
+ */
+app.post('/api/admin/backups', async (req, res) => {
+  try {
+    const filename = await performBackup(false);
+
+    // 审计日志
+    const userId = req.headers['x-user-id'] || 'system';
+    const userName = decodeUserName(req.headers['x-user-name']) || 'System';
+    if (typeof logAudit === 'function') {
+      await logAudit(userId, userName, 'BACKUP', 'system', null, '创建手动备份', { filename }, req);
+    }
+
+    res.json({ success: true, filename });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/admin/backups/:filename
+ * 删除备份文件
+ */
+app.delete('/api/admin/backups/:filename', async (req, res) => {
+  try {
+    const { filename } = req.params;
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      return res.status(400).json({ error: '无效的文件名' });
+    }
+
+    await fs.unlink(path.join(BACKUP_DIR, filename));
+
+    // 审计日志
+    const userId = req.headers['x-user-id'] || 'system';
+    const userName = decodeUserName(req.headers['x-user-name']) || 'System';
+    if (typeof logAudit === 'function') {
+      await logAudit(userId, userName, 'DELETE', 'backup', null, '删除备份文件', { filename }, req);
+    }
+
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/admin/restore/:filename
+ * 恢复数据
+ */
+app.post('/api/admin/restore/:filename', async (req, res) => {
+  try {
+    const { filename } = req.params;
+
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      return res.status(400).json({ error: '无效的文件名' });
+    }
+
+    await restoreBackup(filename);
+
+    // 审计日志
+    const userId = req.headers['x-user-id'] || 'system';
+    const userName = decodeUserName(req.headers['x-user-name']) || 'System';
+    if (typeof logAudit === 'function') {
+      await logAudit(userId, userName, 'RESTORE', 'system', null, '恢复系统数据', { filename }, req);
+    }
+
+    res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

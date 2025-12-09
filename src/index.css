@@ -296,6 +296,37 @@
   }
 }
 
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+
+  70% {
+    transform: scale(0.9);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .carousel-slide-enter {
   animation: slideInFromRight 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
@@ -310,6 +341,19 @@
 
 .carousel-scale-enter {
   animation: scaleIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* 通用动画类 */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-in-out forwards;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s ease-out forwards;
+}
+
+.animate-bounce-in {
+  animation: bounceIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 /* 子元素延迟动画 */

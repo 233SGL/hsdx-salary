@@ -1,13 +1,18 @@
 ﻿import React, { useMemo } from 'react';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { CalendarDays, AlertCircle, Wand2, Trash2 } from 'lucide-react';
+import { CalendarDays, AlertCircle, Wand2, Trash2, RefreshCw } from 'lucide-react';
 
 export const Attendance: React.FC = () => {
-    const { currentData, currentDate, setCurrentDate, updateDailyLog, autoFillAttendance, clearAllAttendance, isSaving, employees } = useData();
+    const { currentData, currentDate, setCurrentDate, updateDailyLog, autoFillAttendance, clearAllAttendance, isSaving, employees, refreshData } = useData();
     const { hasPermission } = useAuth();
 
     const canEdit = hasPermission('EDIT_HOURS');
+
+    // 刷新数据
+    const handleRefresh = () => {
+        if (refreshData) refreshData();
+    };
 
     // Dynamic Year Range: Current Year +/- 5 Years
     const yearOptions = useMemo(() => {
@@ -73,6 +78,16 @@ export const Attendance: React.FC = () => {
 
                 {/* Controls */}
                 <div className="flex items-center gap-3">
+                    {/* 刷新按钮 */}
+                    <button
+                        onClick={handleRefresh}
+                        disabled={isSaving}
+                        className="btn-secondary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="刷新数据"
+                    >
+                        <RefreshCw size={16} className={isSaving ? 'animate-spin' : ''} /> 刷新
+                    </button>
+
                     {canEdit && (
                         <>
                             <button

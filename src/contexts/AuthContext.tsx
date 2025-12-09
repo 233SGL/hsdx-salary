@@ -29,7 +29,7 @@ interface AuthContextType {
   /** 设置角色（已弃用，保留接口兼容） */
   setRole: (role: UserRole) => void;
   /** 当前登录用户信息 */
-  user: { name: string; avatar: string; permissions: Permission[]; role?: UserRole; scopes: string[]; newPermissions?: any } | null;
+  user: { id: string; username: string; name: string; avatar: string; permissions: Permission[]; role?: UserRole; scopes: string[]; newPermissions?: any } | null;
   /** 登出函数 */
   logout: () => void;
 
@@ -76,11 +76,44 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [role, setRoleState] = useState<UserRole>(UserRole.GUEST);
 
   // Always start with no user - require login on every app load
-  const [user, setUser] = useState<{ name: string; avatar: string; permissions: Permission[]; scopes: string[]; newPermissions?: any } | null>(null);
+  const [user, setUser] = useState<{ id: string; username: string; name: string; avatar: string; permissions: Permission[]; scopes: string[]; newPermissions?: any } | null>(null);
+
+  // 发送心跳信号用于在线状态追踪
+  const sendHeartbeat = async (userId: string, username: string) => {
+    try {
+      let sessionId = sessionStorage.getItem('session_id');
+      if (!sessionId) {
+        sessionId = `sess_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        sessionStorage.setItem('session_id', sessionId);
+      }
+
+      await fetch('/api/admin/heartbeat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, userId, username })
+      });
+    } catch (err) {
+      console.error('心跳发送失败:', err);
+    }
+  };
+
+  // 清除会话
+  const clearSession = async () => {
+    const sessionId = sessionStorage.getItem('session_id');
+    if (sessionId) {
+      try {
+        await fetch(`/api/admin/session/${sessionId}`, { method: 'DELETE' });
+      } catch (err) {
+        console.error('清除会话失败:', err);
+      }
+    }
+  };
 
   const loginUser = (systemUser: SystemUser) => {
     setRoleState(systemUser.role);
     const userObj = {
+      id: systemUser.id,
+      username: systemUser.username,
       name: systemUser.displayName,
       avatar: `https://ui-avatars.com/api/?name=${systemUser.displayName}&background=0ea5e9&color=fff`,
       permissions: systemUser.permissions || [],
@@ -89,12 +122,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       newPermissions: systemUser.newPermissions
     };
     setUser(userObj);
-    // No longer persist to localStorage - session only
+
+    // 保存用户信息到 sessionStorage 用于审计日志
+    sessionStorage.setItem('user_id', systemUser.id);
+    sessionStorage.setItem('user_name', systemUser.displayName);
+
+    // 立即发送第一次心跳
+    sendHeartbeat(systemUser.id, systemUser.displayName);
   };
 
-  const logout = () => {
+  // 定期发送心跳（每2分钟）
+  React.useEffect(() => {
+    if (!user) return;
+
+    const interval = setInterval(() => {
+      sendHeartbeat(user.id, user.name);
+    }, 2 * 60 * 1000); // 2分钟
+
+    return () => clearInterval(interval);
+  }, [user]);
+
+  const logout = async () => {
+    // 先清除远程会话
+    await clearSession();
     setRoleState(UserRole.GUEST);
     setUser(null);
+    // 清除会话信息
+    sessionStorage.removeItem('user_id');
+    sessionStorage.removeItem('user_name');
+    sessionStorage.removeItem('admin_verified_at');
   };
 
   const hasPermission = (perm: Permission): boolean => {

@@ -21,7 +21,9 @@ import {
   TrendingUp,
   DollarSign,
   Cog,
-  Package
+  Package,
+  Shield,
+  Activity
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
@@ -30,12 +32,37 @@ export const Sidebar = ({ isOpen, toggle }: { isOpen: boolean; toggle: () => voi
   const { user, logout, role, hasPermission, hasScope } = useAuth();
   const { isSaving } = useData();
 
-  const [expandedSections, setExpandedSections] = useState<string[]>(['styling', 'weaving', 'system']);
+  // 菜单折叠状态持久化
+  // 首次登录时默认折叠，后续使用上次的状态
+  const [expandedSections, setExpandedSections] = useState<string[]>(() => {
+    const storageKey = 'sidebar_expanded_sections';
+    const hasVisited = localStorage.getItem('sidebar_has_visited');
+
+    if (!hasVisited) {
+      // 首次访问：默认折叠所有菜单
+      localStorage.setItem('sidebar_has_visited', 'true');
+      return [];
+    }
+
+    // 非首次访问：读取保存的状态
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
 
   const toggleSection = (id: string) => {
-    setExpandedSections(prev =>
-      prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
-    );
+    setExpandedSections(prev => {
+      const newState = prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id];
+      // 保存到 localStorage
+      localStorage.setItem('sidebar_expanded_sections', JSON.stringify(newState));
+      return newState;
+    });
   };
 
   const menuStructure = [
@@ -75,6 +102,17 @@ export const Sidebar = ({ isOpen, toggle }: { isOpen: boolean; toggle: () => voi
       items: [
         { icon: Users, label: '员工档案', to: '/employees', visible: hasPermission('VIEW_EMPLOYEES') || hasPermission('MANAGE_EMPLOYEES') },
         { icon: Settings, label: '全局设置', to: '/settings', visible: hasPermission('MANAGE_SYSTEM') },
+      ]
+    },
+    {
+      id: 'admin',
+      title: '后台管理',
+      icon: Shield,
+      visible: hasPermission('MANAGE_SYSTEM'), // 仅超级管理员可见
+      items: [
+        { icon: Activity, label: '系统监控', to: '/admin', visible: true, end: true },
+        { icon: FileText, label: '操作日志', to: '/admin/logs', visible: true },
+        { icon: Database, label: '数据库', to: '/admin/database', visible: true },
       ]
     }
   ];
