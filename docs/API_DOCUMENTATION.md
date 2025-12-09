@@ -799,6 +799,124 @@ GET /api/weaving/config
 }
 ```
 
+---
+
+## 后台管理 API (Admin)
+
+> 所有后台管理 API 以 `/api/admin` 为前缀
+
+### 审计日志
+
+#### 获取操作日志
+
+```
+GET /api/admin/audit-logs
+```
+
+**查询参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `page` | number | 否 | 页码，默认1 |
+| `limit` | number | 否 | 每页数量，默认20 |
+| `action` | string | 否 | 操作类型: CREATE/UPDATE/DELETE/LOGIN/LOGOUT |
+| `targetType` | string | 否 | 目标类型: employee/workshop/user/settings |
+
+**响应示例**:
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "username": "admin",
+      "action": "UPDATE",
+      "target_type": "employee",
+      "target_id": "emp001",
+      "target_name": "张三",
+      "details": {"old": "...", "new": "..."},
+      "ip_address": "127.0.0.1",
+      "created_at": "2025-12-09T10:00:00Z"
+    }
+  ],
+  "total": 100
+}
+```
+
+### 数据库查看器
+
+#### 获取所有表信息
+
+```
+GET /api/admin/database/tables
+```
+
+**响应示例**:
+```json
+[
+  {
+    "table_name": "employees",
+    "column_count": 10,
+    "row_count": 25
+  },
+  {
+    "table_name": "monthly_data",
+    "column_count": 5,
+    "row_count": 12
+  }
+]
+```
+
+#### 获取表结构
+
+```
+GET /api/admin/database/tables/:tableName
+```
+
+**示例**: `GET /api/admin/database/tables/employees`
+
+**响应示例**:
+```json
+{
+  "columns": [
+    {
+      "column_name": "id",
+      "data_type": "text",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "column_name": "name",
+      "data_type": "text",
+      "is_nullable": "NO",
+      "column_default": null
+    }
+  ]
+}
+```
+
+#### 获取表数据
+
+```
+GET /api/admin/database/tables/:tableName/data
+```
+
+**查询参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `page` | number | 否 | 页码，默认1 |
+| `limit` | number | 否 | 每页数量，默认20 |
+
+**响应示例**:
+```json
+{
+  "data": [
+    { "id": "emp001", "name": "张三", ... }
+  ],
+  "total": 25
+}
+```
+
 #### 更新配置
 
 ```
