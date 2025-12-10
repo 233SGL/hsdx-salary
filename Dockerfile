@@ -8,27 +8,31 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# 复制依赖文件
-COPY package*.json ./
+# 复制 package 文件
+COPY package.json package-lock.json* ./
 
-# 安装所有依赖（包括 devDependencies，如 vite）
-RUN npm install
+# 安装所有依赖（包括 devDependencies 如 vite, typescript 等）
+# 使用 npm install 而不是 npm ci 以确保 devDependencies 被安装
+RUN npm install --include=dev
 
 # 复制源代码
 COPY . .
+
+# 验证 vite 是否可用
+RUN npx vite --version
 
 # 构建前端
 RUN npm run build
 
 # ========================================
-# 阶段 2: 运行时
+# 阶段 2: 运行时（精简生产镜像）
 # ========================================
 FROM node:22-alpine AS runtime
 
 WORKDIR /app
 
 # 只复制生产依赖
-COPY package*.json ./
+COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev
 
 # 复制后端代码
