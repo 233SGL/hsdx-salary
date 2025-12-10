@@ -10,9 +10,14 @@
 - **移除默认密码提示** - 登录页不再显示 "(默认: 1234)" 提示
 - **Supabase 函数安全修复** - 为 `calculate_production_equivalent` 设置安全的 `search_path`
 
+### ✨ 新功能
+- **机台管理刷新按钮** - 页面右上角添加刷新按钮，支持手动刷新数据
+
 ### 🔧 修复
 - **机台数据保存修复** - 后端 API 支持 `effectiveWidth` 和 `speedWeftPerMin` 字段
 - **前端编辑框修复** - 正确发送有效幅宽到 API
+- **数据库时间戳修复** - 添加 `updated_at` 自动更新触发器
+- **API 返回时间戳** - 所有 GET API 返回 `createdAt`/`updatedAt` 字段
 
 ### 📄 文档更新
 - 同步 API 文档与前端功能
