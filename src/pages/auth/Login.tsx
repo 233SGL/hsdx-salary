@@ -53,58 +53,48 @@ export const Login: React.FC = () => {
         setError('');
 
         try {
-            if (pinInput === selectedUser.pinCode) {
-                // 检查是否有任何权限
-                const defaultRoute = getDefaultRoute(selectedUser.permissions);
+            // 安全改进：使用服务端 PIN 验证，不在前端比较 PIN
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: selectedUser.id,
+                    pin: pinInput
+                })
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                // 验证成功
+                const defaultRoute = getDefaultRoute(result.user.permissions);
                 if (defaultRoute === '/login') {
                     setError('此账号无任何权限，请联系管理员');
                     setFailedAttempts(0);
                     return;
                 }
 
-                // 记录登录成功
-                try {
-                    await fetch('/api/admin/login-record', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            userId: selectedUser.id,
-                            username: selectedUser.displayName,
-                            action: 'LOGIN'
-                        })
-                    });
-                } catch (err) {
-                    console.error('记录登录失败:', err);
-                }
-
-                login(selectedUser);
+                // 使用服务端返回的用户信息登录
+                login({
+                    ...selectedUser,
+                    ...result.user
+                });
                 navigate(defaultRoute);
             } else {
+                // 验证失败
                 const newAttempts = failedAttempts + 1;
                 setFailedAttempts(newAttempts);
-
-                // 记录登录失败
-                try {
-                    await fetch('/api/admin/login-record', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            userId: selectedUser.id,
-                            username: selectedUser.displayName,
-                            action: 'LOGIN_FAILED'
-                        })
-                    });
-                } catch (err) {
-                    console.error('记录登录失败:', err);
-                }
 
                 if (newAttempts >= 3) {
                     setError('PIN 码错误，如需修改密码，请联系管理员');
                 } else {
-                    setError('PIN 码错误');
+                    setError(result.error || 'PIN 码错误');
                 }
                 setPinInput('');
             }
+        } catch (err) {
+            console.error('登录请求失败:', err);
+            setError('登录请求失败，请检查网络连接');
         } finally {
             setSubmitting(false);
         }

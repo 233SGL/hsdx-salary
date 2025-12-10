@@ -365,12 +365,68 @@ app.put('/api/settings', async (req, res) => {
 // ========================================
 
 /**
+ * POST /api/auth/login
+ * 服务端 PIN 验证（安全改进：PIN 不应在前端比较）
+ */
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { userId, pin } = req.body;
+
+    if (!userId || !pin) {
+      return res.status(400).json({ success: false, error: '缺少必要参数' });
+    }
+
+    // 查询用户信息（包括 PIN 码进行验证）
+    const { rows } = await pool.query(
+      'SELECT id, username, display_name, role, custom_role_name, pin_code, is_system, scopes, permissions FROM system_users WHERE id = $1',
+      [userId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(401).json({ success: false, error: '用户不存在' });
+    }
+
+    const user = rows[0];
+
+    // 服务端验证 PIN 码
+    if (user.pin_code !== pin) {
+      // 记录登录失败
+      await logLogin(userId, user.display_name || user.username, 'LOGIN_FAILED', req);
+      return res.status(401).json({ success: false, error: 'PIN 码错误' });
+    }
+
+    // 验证成功，记录登录
+    await logLogin(userId, user.display_name || user.username, 'LOGIN', req);
+
+    // 返回用户信息（不包含 PIN 码）
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        displayName: user.display_name,
+        role: user.role,
+        customRoleName: user.custom_role_name,
+        isSystem: user.is_system,
+        scopes: user.scopes || [],
+        permissions: user.permissions || []
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * GET /api/users
- * 获取所有系统用户列表
+ * 获取所有系统用户列表（不包含敏感信息如 PIN 码）
  */
 app.get('/api/users', async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM system_users ORDER BY id');
+    // 安全改进：不返回 pin_code 字段
+    const { rows } = await pool.query(
+      'SELECT id, username, display_name, role, custom_role_name, is_system, scopes, permissions FROM system_users ORDER BY id'
+    );
     res.json(rows);
   } catch (error) {
     res.status(500).json({ error: error.message });
