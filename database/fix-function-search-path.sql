@@ -6,8 +6,11 @@
 -- 修复: 显式设置 search_path 为 public
 -- ========================================
 
--- 删除旧函数
-DROP FUNCTION IF EXISTS public.calculate_production_equivalent();
+-- 先删除触发器（解除依赖关系）
+DROP TRIGGER IF EXISTS trg_calculate_equivalent ON public.weaving_production_records;
+
+-- 删除旧函数（使用 CASCADE 处理其他依赖）
+DROP FUNCTION IF EXISTS public.calculate_production_equivalent() CASCADE;
 
 -- 重新创建函数，设置安全的 search_path
 CREATE OR REPLACE FUNCTION public.calculate_production_equivalent()

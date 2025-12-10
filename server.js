@@ -955,7 +955,7 @@ app.get('/api/weaving/machines', async (req, res) => {
  */
 app.put('/api/weaving/machines/:id', async (req, res) => {
   try {
-    const { name, speedType, width, targetOutput, status } = req.body;
+    const { name, speedType, width, effectiveWidth, speedWeftPerMin, targetOutput, status } = req.body;
     // 只更新提供的字段，保留未提供字段的原值
     const updateFields = [];
     const values = [req.params.id];
@@ -964,6 +964,8 @@ app.put('/api/weaving/machines/:id', async (req, res) => {
     if (name !== undefined) { updateFields.push(`name = $${paramIndex++}`); values.push(name); }
     if (speedType !== undefined) { updateFields.push(`speed_type = $${paramIndex++}`); values.push(speedType); }
     if (width !== undefined) { updateFields.push(`width = $${paramIndex++}`); values.push(width); }
+    if (effectiveWidth !== undefined) { updateFields.push(`effective_width = $${paramIndex++}`); values.push(effectiveWidth); }
+    if (speedWeftPerMin !== undefined) { updateFields.push(`speed_weft_per_min = $${paramIndex++}`); values.push(speedWeftPerMin); }
     if (targetOutput !== undefined) { updateFields.push(`target_output = $${paramIndex++}`); values.push(targetOutput); }
     if (status !== undefined) { updateFields.push(`status = $${paramIndex++}`); values.push(status); }
 

@@ -186,8 +186,8 @@ const EditModal: React.FC<EditModalProps> = ({ machine, onClose, onSave }) => {
   const [form, setForm] = useState({
     name: '',
     speedType: 'H2' as 'H2' | 'H5',
-    loomWidth: 8.5,
-    width: 7.7,
+    width: 7.7,           // 织机宽度（仅记录）
+    effectiveWidth: 7.7,  // 有效幅宽（用于计算）
     speedWeftPerMin: 41,
     targetOutput: 6450
   });
@@ -197,15 +197,27 @@ const EditModal: React.FC<EditModalProps> = ({ machine, onClose, onSave }) => {
       setForm({
         name: machine.name,
         speedType: machine.speedType,
-        loomWidth: machine.width,
         width: machine.width,
-        speedWeftPerMin: machine.speedWeftPerMin || 0,
+        effectiveWidth: machine.effectiveWidth || machine.width,
+        speedWeftPerMin: machine.speedWeftPerMin || (machine.speedType === 'H5' ? 23 : 41),
         targetOutput: machine.targetOutput
       });
     }
   }, [machine]);
 
   if (!machine) return null;
+
+  const handleSave = () => {
+    // 发送完整数据到 API
+    onSave({
+      name: form.name,
+      speedType: form.speedType,
+      width: form.width,
+      effectiveWidth: form.effectiveWidth,
+      speedWeftPerMin: form.speedWeftPerMin,
+      targetOutput: form.targetOutput
+    });
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
@@ -236,8 +248,8 @@ const EditModal: React.FC<EditModalProps> = ({ machine, onClose, onSave }) => {
                 name="loom-width"
                 type="number"
                 step="0.1"
-                value={form.loomWidth}
-                onChange={e => setForm(f => ({ ...f, loomWidth: parseFloat(e.target.value) || 0 }))}
+                value={form.width}
+                onChange={e => setForm(f => ({ ...f, width: parseFloat(e.target.value) || 0 }))}
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 aria-describedby="loom-width-desc"
               />
@@ -250,8 +262,8 @@ const EditModal: React.FC<EditModalProps> = ({ machine, onClose, onSave }) => {
                 name="weaving-width"
                 type="number"
                 step="0.1"
-                value={form.width}
-                onChange={e => setForm(f => ({ ...f, width: parseFloat(e.target.value) || 0 }))}
+                value={form.effectiveWidth}
+                onChange={e => setForm(f => ({ ...f, effectiveWidth: parseFloat(e.target.value) || 0 }))}
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 aria-describedby="weaving-width-desc"
               />
@@ -291,7 +303,7 @@ const EditModal: React.FC<EditModalProps> = ({ machine, onClose, onSave }) => {
             取消
           </button>
           <button
-            onClick={() => onSave(form)}
+            onClick={handleSave}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
           >
             <Check className="w-4 h-4" />
