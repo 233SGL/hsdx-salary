@@ -15,7 +15,8 @@ import {
   Check,
   X,
   Loader2,
-  Edit3
+  Edit3,
+  RefreshCw
 } from 'lucide-react';
 
 // ========================================
@@ -417,6 +418,21 @@ export const MachineManagement: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-800">机台管理</h1>
           <p className="text-sm text-slate-500 mt-1">11台织机状态监控与配置</p>
         </div>
+        <button
+          onClick={() => {
+            setLoading(true);
+            fetchMachines()
+              .then(data => setMachines(sortMachines(data)))
+              .catch(() => { })
+              .finally(() => setLoading(false));
+          }}
+          disabled={loading}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+          title="刷新数据"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          刷新
+        </button>
       </div>
 
       {/* 状态统计 */}
