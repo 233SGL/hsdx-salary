@@ -1,17 +1,3 @@
 {
-    "runtime": "dockerfile",
-    "build": {
-        "dockerfile": "Dockerfile"
-    },
-    "ports": [
-        {
-            "id": "web",
-            "port": 8080,
-            "type": "HTTP"
-        }
-    ],
-    "healthcheck": {
-        "path": "/api/health",
-        "port": 8080
-    }
+    "runtime": "dockerfile"
 }
