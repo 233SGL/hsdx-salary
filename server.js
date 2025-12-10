@@ -1322,6 +1322,42 @@ app.post('/api/admin/verify', async (req, res) => {
 });
 
 /**
+ * POST /api/admin/verify-pin
+ * 验证管理员 PIN 码（用于危险操作的二次确认）
+ * 使用 admin 账户的 PIN 码作为主密码
+ */
+app.post('/api/admin/verify-pin', async (req, res) => {
+  try {
+    const { pin } = req.body;
+
+    if (!pin) {
+      return res.status(400).json({ error: '缺少 PIN 码' });
+    }
+
+    // 获取 admin 账户的 PIN 码
+    const { rows: adminRows } = await pool.query(
+      "SELECT pin_code FROM system_users WHERE username = 'admin' LIMIT 1"
+    );
+
+    if (adminRows.length === 0) {
+      return res.status(500).json({ error: '管理员账户不存在' });
+    }
+
+    const adminPinCode = adminRows[0].pin_code;
+
+    // 验证输入的 PIN 是否与管理员 PIN 一致
+    if (adminPinCode !== pin) {
+      return res.status(401).json({ error: 'PIN 码错误' });
+    }
+
+    // 验证成功
+    res.json({ verified: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * POST /api/admin/login-record
  * 记录登录历史（登录成功/失败）
  */

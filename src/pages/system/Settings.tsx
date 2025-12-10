@@ -121,10 +121,26 @@ export const Settings: React.FC = () => {
     const handleRestoreBackup = async (filename: string) => {
         if (isProcessing) return;
         if (confirm(`⚠️ 严重警告：\n\n您正在尝试从备份 "${filename}" 恢复数据。\n此操作将清空当前所有数据并覆盖为备份状态！\n\n此操作不可撤销！确定要继续吗？`)) {
-            // 二次确认，因为这是非常危险的操作
-            const pin = prompt("请输入管理员密码（PIN）以确认恢复操作：");
-            if (pin !== '1234') { // 这里简单校验，实际应调用后端校验或使用统一的验证机制，但 Settings 页面本身已有守卫
-                if (pin !== null) showStatus('error', '密码错误，操作取消');
+            // 二次确认，要求输入当前用户的 PIN
+            const pin = prompt("请输入您的账户密码（PIN）以确认恢复操作：");
+            if (!pin) {
+                return;
+            }
+
+            // 通过后端 API 验证 PIN
+            try {
+                const verifyResponse = await fetch('/api/admin/verify-pin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pin })
+                });
+
+                if (!verifyResponse.ok) {
+                    showStatus('error', '密码验证失败，操作取消');
+                    return;
+                }
+            } catch (err) {
+                showStatus('error', '验证请求失败，请重试');
                 return;
             }
 

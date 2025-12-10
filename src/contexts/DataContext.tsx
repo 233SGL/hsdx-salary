@@ -106,9 +106,19 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 /**
  * 生成唯一ID
- * 使用随机数生成 9 位字符的 ID
+ * 使用 crypto.randomUUID() 生成安全的 UUID（如果浏览器不支持，使用 fallback）
  */
-const generateId = () => Math.random().toString(36).substr(2, 9);
+const generateId = (): string => {
+  // 优先使用 crypto.randomUUID（浏览器原生方法，安全）
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback: 使用更强的随机数生成
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (crypto.getRandomValues(new Uint8Array(1))[0] & 15) >> (c === 'x' ? 0 : 3);
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+};
 
 /**
  * 默认月度参数
