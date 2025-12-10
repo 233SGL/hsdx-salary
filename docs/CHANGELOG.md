@@ -7,8 +7,17 @@
 ## v1.4.2 (2025-12-10)
 
 ### 🔐 安全修复
-- **移除默认密码提示** - 登录页不再显示 "(默认: 1234)" 提示，防止鼓励弱密码
+- **移除默认密码提示** - 登录页不再显示 "(默认: 1234)" 提示
 - **Supabase 函数安全修复** - 为 `calculate_production_equivalent` 设置安全的 `search_path`
+
+### 🔧 修复
+- **机台数据保存修复** - 后端 API 支持 `effectiveWidth` 和 `speedWeftPerMin` 字段
+- **前端编辑框修复** - 正确发送有效幅宽到 API
+
+### 📄 文档更新
+- 同步 API 文档与前端功能
+- 机台更新 API 添加新字段说明
+- 审计日志 API 添加 search/dateFrom/dateTo 参数
 
 ---
 
