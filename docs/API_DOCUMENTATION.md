@@ -7,14 +7,25 @@
 - **基础 URL**: `/api`（通过 Vite 代理转发到 `http://localhost:3000/api`）
 - **数据格式**: JSON
 - **字符编码**: UTF-8
-- **认证方式**: 暂无（后续可添加 JWT）
+- **认证方式**: 请求头认证 + 权限验证
 - **后端框架**: Express.js + PostgreSQL (Supabase)
 
 ### 请求头
 
 ```
 Content-Type: application/json
+x-user-id: <用户ID>          # 敏感操作必须
+x-user-name: <用户名>        # 审计日志用
 ```
+
+### 认证与权限
+
+| 权限 | 说明 | 适用 API |
+|------|------|----------|
+| `MANAGE_EMPLOYEES` | 员工管理权限 | POST/PUT/DELETE `/api/employees/*`, `/api/workshops/*` |
+| `MANAGE_SYSTEM` | 系统管理权限 | POST/PUT/DELETE `/api/users/*`, `/api/admin/*` |
+
+**速率限制**: 登录和 PIN 验证接口有 5 次失败锁定 15 分钟的限制。
 
 ### 通用响应格式
 
@@ -40,8 +51,12 @@ Content-Type: application/json
 | `201` | 创建成功 |
 | `204` | 删除成功（无内容返回）|
 | `400` | 请求参数错误 |
+| `401` | 未授权（缺少或无效的用户标识）|
+| `403` | 权限不足 |
 | `404` | 资源不存在 |
+| `429` | 请求过于频繁（速率限制）|
 | `500` | 服务器内部错误 |
+
 
 ---
 
