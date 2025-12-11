@@ -37,7 +37,7 @@ RUN npm ci --omit=dev
 
 # 复制后端代码
 COPY server.js ./
-COPY .env.server ./
+# COPY .env.server ./
 
 # 从构建阶段复制前端产物
 COPY --from=builder /app/dist ./dist
