@@ -151,7 +151,7 @@ export class DatabaseService {
       // 尝试从全局状态获取用户信息（由登录时设置）
       const userId = sessionStorage.getItem('user_id') || 'system';
       const userName = sessionStorage.getItem('user_name') || 'System';
-      
+
       // 对中文字符进行 URI 编码，符合 HTTP 头部标准
       return {
         'x-user-id': userId,
@@ -452,7 +452,9 @@ export class DatabaseService {
       standardBaseScore: updatedEmp.standardBaseScore,
       status: updatedEmp.status,
       phone: updatedEmp.phone,
-      expectedDailyHours: updatedEmp.expectedDailyHours
+      expectedDailyHours: updatedEmp.expectedDailyHours,
+      baseSalary: updatedEmp.baseSalary,
+      coefficient: updatedEmp.coefficient
     };
 
     try {
