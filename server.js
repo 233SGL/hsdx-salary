@@ -1115,32 +1115,36 @@ app.get('/api/weaving/monthly-data/:year/:month', async (req, res) => {
 
 /**
  * POST /api/weaving/monthly-data
- * 保存织造工段月度数据
+ * 保存织造工段月度核算数据
  */
 app.post('/api/weaving/monthly-data', async (req, res) => {
   try {
     const {
-      year, month, netFormationRate, operationRate, equivalentOutput,
-      activeMachines, actualOperators, attendanceDays, calculationSnapshot, machineRecords
+      year, month, totalArea, equivalentOutput, totalNets, qualifiedNets,
+      totalBonus, perSqmBonus, adminTeamBonus, isConfirmed, targetOutput,
+      calculationSnapshot
     } = req.body;
 
     const { rows } = await pool.query(
       `INSERT INTO weaving_monthly_data 
-        (year, month, net_formation_rate, operation_rate, equivalent_output,
-         active_machines, actual_operators, attendance_days, calculation_snapshot, machine_records)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb)
+        (year, month, total_area, equivalent_output, total_nets, qualified_nets,
+         total_bonus, per_sqm_bonus, admin_team_bonus, is_confirmed, confirmed_at, 
+         confirmed_by, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), $11, $12)
        ON CONFLICT (year, month) DO UPDATE SET
-         net_formation_rate = $3, operation_rate = $4, equivalent_output = $5,
-         active_machines = $6, actual_operators = $7, attendance_days = $8,
-         calculation_snapshot = $9::jsonb, machine_records = $10::jsonb,
+         total_area = $3, equivalent_output = $4, total_nets = $5, qualified_nets = $6,
+         total_bonus = $7, per_sqm_bonus = $8, admin_team_bonus = $9, is_confirmed = $10,
+         confirmed_at = NOW(), confirmed_by = $11, notes = $12,
          updated_at = NOW()
        RETURNING *`,
-      [year, month, netFormationRate, operationRate, equivalentOutput,
-        activeMachines, actualOperators, attendanceDays,
-        JSON.stringify(calculationSnapshot), JSON.stringify(machineRecords)]
+      [year, month, totalArea || 0, equivalentOutput || 0, totalNets || 0, qualifiedNets || 0,
+        totalBonus || 0, perSqmBonus || 0, adminTeamBonus || 0, isConfirmed || false,
+        req.headers['x-user-name'] || 'system',
+        calculationSnapshot ? JSON.stringify(calculationSnapshot) : null]
     );
     res.json(rows[0]);
   } catch (error) {
+    console.error('保存织造月度数据失败:', error);
     res.status(500).json({ error: error.message });
   }
 });

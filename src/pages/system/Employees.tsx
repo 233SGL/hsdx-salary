@@ -24,7 +24,8 @@ import {
     MoreVertical,
     Layers,
     Lock,
-    CheckSquare
+    CheckSquare,
+    RefreshCw
 } from 'lucide-react';
 
 // 系统核心工段，不可删除（与路由和系统功能硬绑定）
@@ -73,7 +74,7 @@ const getPositionLabel = (pos: string) => {
 };
 
 export const Employees: React.FC = () => {
-    const { employees, workshops, addEmployee, updateEmployee, deleteEmployee, addWorkshop, deleteWorkshop, addWorkshopFolder, deleteWorkshopFolder } = useData();
+    const { employees, workshops, addEmployee, updateEmployee, deleteEmployee, addWorkshop, deleteWorkshop, addWorkshopFolder, deleteWorkshopFolder, refreshData, isSaving } = useData();
     const { hasPermission, hasScope } = useAuth();
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -507,15 +508,33 @@ export const Employees: React.FC = () => {
                         </h1>
                         <p className="text-slate-500 text-sm mt-0.5">人员档案管理</p>
                     </div>
-                    {canManage && (
+                    <div className="flex items-center gap-2">
                         <button
-                            onClick={handleCreateClick}
-                            disabled={!selectedWorkshopId}
-                            className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={async () => {
+                                try {
+                                    await refreshData();
+                                    alert('数据已刷新');
+                                } catch (error) {
+                                    console.error('刷新失败:', error);
+                                    alert('刷新失败，请稍后重试');
+                                }
+                            }}
+                            disabled={isSaving}
+                            className="px-3 py-2.5 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors flex items-center gap-2 disabled:opacity-50"
+                            title="刷新数据"
                         >
-                            <Plus size={18} /> 新增员工
+                            <RefreshCw size={18} className={isSaving ? 'animate-spin' : ''} /> 刷新
                         </button>
-                    )}
+                        {canManage && (
+                            <button
+                                onClick={handleCreateClick}
+                                disabled={!selectedWorkshopId}
+                                className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <Plus size={18} /> 新增员工
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 <div className="card p-3 flex flex-col md:flex-row gap-3 items-center bg-white rounded-2xl border border-slate-100 shadow-sm">

@@ -377,7 +377,11 @@ export class DatabaseService {
       status: row.status,
       phone: row.phone,
       notes: row.notes,
-      expectedDailyHours: expectedHoursValue == null ? undefined : Number(expectedHoursValue)
+      expectedDailyHours: expectedHoursValue == null ? undefined : Number(expectedHoursValue),
+      // 织造工段专用字段
+      machineId: row.machine_id ?? row.machineId,
+      baseSalary: Number(row.base_salary ?? row.baseSalary ?? 0),
+      coefficient: Number(row.coefficient ?? 1.0)
     };
   }
 

@@ -471,20 +471,29 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const newEmps = employees.map(e => e.id === updatedEmp.id ? updatedEmp : e);
     setEmployees(newEmps);
     setIsSaving(true);
-    await db.updateEmployee(updatedEmp);
 
-    if (currentData) {
-      const newData = {
-        ...currentData,
-        records: currentData.records.map(r =>
-          r.employeeId === updatedEmp.id
-            ? { ...r, baseScoreSnapshot: updatedEmp.standardBaseScore, employeeName: updatedEmp.name }
-            : r
-        )
-      };
-      await persistData(newData);
+    try {
+      await db.updateEmployee(updatedEmp);
+
+      // 只有定型工段员工才需要同步月度数据
+      // 织造工段有自己的数据管理方式
+      if (currentData && updatedEmp.workshopId === 'ws_styling') {
+        const newData = {
+          ...currentData,
+          records: currentData.records.map(r =>
+            r.employeeId === updatedEmp.id
+              ? { ...r, baseScoreSnapshot: updatedEmp.standardBaseScore, employeeName: updatedEmp.name }
+              : r
+          )
+        };
+        await persistData(newData);
+      }
+    } catch (error) {
+      console.error('更新员工失败:', error);
+      throw error;
+    } finally {
+      setIsSaving(false);
     }
-    setIsSaving(false);
   };
 
   const deleteEmployee = async (id: string) => {
