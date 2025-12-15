@@ -95,9 +95,19 @@ CREATE TABLE IF NOT EXISTS weaving_config (
 );
 
 -- ========================================
--- 5. 织造工段月度汇总表
+-- 5. 织造工段月度汇总表（预留优化表）
 -- ========================================
--- 月度汇总数据，由生产记录自动聚合
+-- 用途：当生产记录数量过大时，可用于缓存月度汇总数据，提升查询性能
+-- 
+-- 当前状态：【预留/未启用】
+-- - 后端 API 已实现自动聚合逻辑（每次生产记录变更时自动更新）
+-- - 前端目前直接从生产记录实时计算，未使用此表
+-- - 当数据量增长到影响性能时，可修改前端直接查询此表
+--
+-- 启用方法：
+-- 1. 修改 MonthlySummary.tsx 的 fetchMonthlySummary 函数
+-- 2. 改为调用 /api/weaving/monthly-summary/:year/:month 端点
+-- ========================================
 CREATE TABLE IF NOT EXISTS weaving_monthly_summary (
     year INTEGER NOT NULL,
     month INTEGER NOT NULL,

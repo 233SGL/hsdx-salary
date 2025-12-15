@@ -1077,6 +1077,220 @@ app.put('/api/weaving/config', async (req, res) => {
 });
 
 // ========================================
+// 织造工段生产记录 API
+// ========================================
+
+/**
+ * 更新月度汇总数据（自动聚合）
+ * 在生产记录变更时调用
+ */
+async function updateMonthlySummary(year, month) {
+  try {
+    const result = await pool.query(`
+      INSERT INTO weaving_monthly_summary (year, month, total_nets, total_length, total_area, equivalent_output)
+      SELECT 
+        $1 as year, 
+        $2 as month,
+        COUNT(*) as total_nets,
+        COALESCE(SUM(length), 0) as total_length,
+        COALESCE(SUM(actual_area), 0) as total_area,
+        COALESCE(SUM(equivalent_output), 0) as equivalent_output
+      FROM weaving_production_records 
+      WHERE year = $1 AND month = $2
+      ON CONFLICT (year, month) DO UPDATE SET
+        total_nets = EXCLUDED.total_nets,
+        total_length = EXCLUDED.total_length,
+        total_area = EXCLUDED.total_area,
+        equivalent_output = EXCLUDED.equivalent_output,
+        updated_at = NOW()
+    `, [year, month]);
+    console.log(`[Auto-Aggregate] 更新 ${year}年${month}月 汇总数据`);
+    return result;
+  } catch (error) {
+    console.error(`[Auto-Aggregate] 更新月度汇总失败:`, error.message);
+  }
+}
+
+/**
+ * GET /api/weaving/production-records
+ * 获取生产记录
+ */
+app.get('/api/weaving/production-records', async (req, res) => {
+  try {
+    const { year, month, machineId, productId } = req.query;
+    let query = 'SELECT * FROM weaving_production_records WHERE 1=1';
+    const params = [];
+    let idx = 1;
+
+    if (year) { query += ` AND year = $${idx++}`; params.push(year); }
+    if (month) { query += ` AND month = $${idx++}`; params.push(month); }
+    if (machineId) { query += ` AND machine_id = $${idx++}`; params.push(machineId); }
+    if (productId) { query += ` AND product_id = $${idx++}`; params.push(productId); }
+
+    query += ' ORDER BY production_date DESC, id DESC';
+
+    const { rows } = await pool.query(query, params);
+    // 转换字段名
+    const records = rows.map(row => ({
+      id: row.id,
+      year: row.year,
+      month: row.month,
+      productionDate: row.production_date,
+      machineId: row.machine_id,
+      productId: row.product_id,
+      length: parseFloat(row.length),
+      machineWidth: parseFloat(row.machine_width),
+      weftDensity: parseFloat(row.weft_density),
+      speedType: row.speed_type,
+      actualArea: parseFloat(row.actual_area),
+      outputCoef: parseFloat(row.output_coef),
+      widthCoef: parseFloat(row.width_coef),
+      speedCoef: parseFloat(row.speed_coef),
+      equivalentOutput: parseFloat(row.equivalent_output),
+      qualityGrade: row.quality_grade,
+      isQualified: row.is_qualified,
+      notes: row.notes,
+      createdAt: row.created_at
+    }));
+    res.json(records);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/weaving/production-records
+ * 创建生产记录
+ */
+app.post('/api/weaving/production-records', async (req, res) => {
+  try {
+    const {
+      productionDate, machineId, productId, length,
+      qualityGrade, isQualified, notes
+    } = req.body;
+
+    // 从日期解析年月
+    const date = new Date(productionDate);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+
+    const { rows } = await pool.query(
+      `INSERT INTO weaving_production_records 
+        (year, month, production_date, machine_id, product_id, length, quality_grade, is_qualified, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING *`,
+      [year, month, productionDate, machineId, productId, length, qualityGrade || 'A', isQualified !== false, notes]
+    );
+
+    // 自动更新月度汇总
+    await updateMonthlySummary(year, month);
+
+    res.status(201).json(rows[0]);
+  } catch (error) {
+    console.error('创建生产记录失败:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * PUT /api/weaving/production-records/:id
+ * 更新生产记录
+ */
+app.put('/api/weaving/production-records/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      productionDate, machineId, productId, length,
+      qualityGrade, isQualified, notes
+    } = req.body;
+
+    // 先获取旧记录的年月（用于更新旧月份汇总）
+    const oldRecord = await pool.query('SELECT year, month FROM weaving_production_records WHERE id = $1', [id]);
+
+    // 从日期解析年月
+    const date = new Date(productionDate);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+
+    const { rows } = await pool.query(
+      `UPDATE weaving_production_records SET
+        year = $2, month = $3, production_date = $4, machine_id = $5, 
+        product_id = $6, length = $7, quality_grade = $8, is_qualified = $9, notes = $10
+       WHERE id = $1 RETURNING *`,
+      [id, year, month, productionDate, machineId, productId, length, qualityGrade, isQualified, notes]
+    );
+
+    if (!rows[0]) return res.status(404).json({ error: '记录不存在' });
+
+    // 自动更新月度汇总
+    await updateMonthlySummary(year, month);
+    // 如果月份变了，也更新旧月份
+    if (oldRecord.rows[0] && (oldRecord.rows[0].year !== year || oldRecord.rows[0].month !== month)) {
+      await updateMonthlySummary(oldRecord.rows[0].year, oldRecord.rows[0].month);
+    }
+
+    res.json(rows[0]);
+  } catch (error) {
+    console.error('更新生产记录失败:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/weaving/production-records/:id
+ * 删除生产记录
+ */
+app.delete('/api/weaving/production-records/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 先获取记录的年月（用于更新汇总）
+    const record = await pool.query('SELECT year, month FROM weaving_production_records WHERE id = $1', [id]);
+
+    await pool.query('DELETE FROM weaving_production_records WHERE id = $1', [id]);
+
+    // 自动更新月度汇总
+    if (record.rows[0]) {
+      await updateMonthlySummary(record.rows[0].year, record.rows[0].month);
+    }
+
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/weaving/monthly-summary/:year/:month
+ * 获取月度汇总数据
+ */
+app.get('/api/weaving/monthly-summary/:year/:month', async (req, res) => {
+  try {
+    const { year, month } = req.params;
+    const { rows } = await pool.query(
+      'SELECT * FROM weaving_monthly_summary WHERE year = $1 AND month = $2',
+      [year, month]
+    );
+    if (!rows[0]) return res.json(null);
+    res.json({
+      year: rows[0].year,
+      month: rows[0].month,
+      totalNets: rows[0].total_nets,
+      totalLength: parseFloat(rows[0].total_length),
+      totalArea: parseFloat(rows[0].total_area),
+      equivalentOutput: parseFloat(rows[0].equivalent_output),
+      netFormationRate: rows[0].net_formation_rate ? parseFloat(rows[0].net_formation_rate) : null,
+      operationRate: rows[0].operation_rate ? parseFloat(rows[0].operation_rate) : null,
+      activeMachines: rows[0].active_machines,
+      actualOperators: rows[0].actual_operators,
+      updatedAt: rows[0].updated_at
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ========================================
 // 织造工段月度数据 API
 // ========================================
 
