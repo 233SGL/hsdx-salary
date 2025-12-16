@@ -9,8 +9,10 @@
  * - 权限检查（新旧两套系统）
  * - 工段范围控制
  * 
- * 注意：从 v1.1 起，登录状态不再持久化，
- * 刷新页面后需要重新登录（会话级）
+ * - 工段范围控制
+ * 
+ * 注意：从 v2.6 起，支持持久化登录（记住我），
+ * 刷新页面后会自动恢复登录状态。
  * 
  * @module contexts/AuthContext
  */
@@ -18,6 +20,7 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { UserRole, Permission, SystemUser, PageType, EditPermission, WorkshopScope } from '../types';
 import { convertOldPermissionsToNew, pageExistsInWorkshop } from '../utils/permissionHelpers';
+import { db } from '../services/db';
 
 /**
  * 认证上下文类型定义
@@ -109,6 +112,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  // ========================================
+  // 3. 持久化登录逻辑
+  // ========================================
+
+  // 登录
   const loginUser = (systemUser: SystemUser) => {
     setRoleState(systemUser.role);
     const userObj = {
@@ -123,9 +131,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
     setUser(userObj);
 
-    // 保存用户信息到 sessionStorage 用于审计日志
+    // 保存会话信息到 sessionStorage (用于审计)
     sessionStorage.setItem('user_id', systemUser.id);
     sessionStorage.setItem('user_name', systemUser.displayName);
+
+    // [NEW] 保存到 localStorage 实现持久化登录
+    localStorage.setItem('auth_user_id', systemUser.id);
+    localStorage.setItem('auth_login_time', Date.now().toString()); // 记录登录时间
 
     // 立即发送第一次心跳
     sendHeartbeat(systemUser.id, systemUser.displayName);
@@ -142,16 +154,85 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => clearInterval(interval);
   }, [user]);
 
+  // 登出
   const logout = async () => {
     // 先清除远程会话
     await clearSession();
     setRoleState(UserRole.GUEST);
     setUser(null);
-    // 清除会话信息
+
+    // 清除所有存储
     sessionStorage.removeItem('user_id');
     sessionStorage.removeItem('user_name');
     sessionStorage.removeItem('admin_verified_at');
+    localStorage.removeItem('auth_user_id'); // 清除持久化凭证
+    localStorage.removeItem('auth_login_time'); // 清除时间戳
   };
+
+  // 自动恢复会话
+  React.useEffect(() => {
+    const restoreSession = async () => {
+      const storedUserId = localStorage.getItem('auth_user_id');
+      const storedTime = localStorage.getItem('auth_login_time');
+
+      if (!storedUserId || user) return;
+
+      // check expiration (1 hour = 1 * 60 * 60 * 1000 ms)
+      const SESSION_DURATION = 1 * 60 * 60 * 1000;
+      if (storedTime) {
+        const loginTime = parseInt(storedTime, 10);
+        if (Date.now() - loginTime > SESSION_DURATION) {
+          console.log('登录会话已过期，请重新登录');
+          // Clear expired session
+          localStorage.removeItem('auth_user_id');
+          localStorage.removeItem('auth_login_time');
+          return;
+        }
+      } else {
+        // If no timestamp found but id exists (legacy), force re-login for security
+        // or treat as new valid session. Safe choice: remove it.
+        localStorage.removeItem('auth_user_id');
+        return;
+      }
+
+      try {
+        await db.connect(); // 确保连接
+        const users = await db.getSystemUsers();
+        const foundUser = users.find(u => u.id === storedUserId);
+
+        if (foundUser) {
+          console.log('自动恢复登录会话:', foundUser.displayName);
+          // 这里不直接调用 loginUser 以避免递归或重复副作用，而是手动设置状态
+          setRoleState(foundUser.role);
+          const userObj = {
+            id: foundUser.id,
+            username: foundUser.username,
+            name: foundUser.displayName,
+            avatar: `https://ui-avatars.com/api/?name=${foundUser.displayName}&background=0ea5e9&color=fff`,
+            permissions: foundUser.permissions || [],
+            role: foundUser.role,
+            scopes: foundUser.scopes || [],
+            newPermissions: foundUser.newPermissions
+          };
+          setUser(userObj);
+
+          // 补全 sessionStorage
+          sessionStorage.setItem('user_id', foundUser.id);
+          sessionStorage.setItem('user_name', foundUser.displayName);
+
+          sendHeartbeat(foundUser.id, foundUser.displayName);
+        } else {
+          // 用户不存在（可能被删除），清除残留
+          localStorage.removeItem('auth_user_id');
+          localStorage.removeItem('auth_login_time');
+        }
+      } catch (err) {
+        console.error('恢复会话失败:', err);
+      }
+    };
+
+    restoreSession();
+  }, []); // 仅组件挂载时执行
 
   const hasPermission = (perm: Permission): boolean => {
     if (!user) return false;
